@@ -1,455 +1,710 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <title>Portals</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no,
-    minimum-scale=1.0, maximum-scale=1.0">
-    <style>
-      body {
-        font-family: monospace;
-        margin: 0;
-        overflow: hidden;
-        position: fixed;
-        width: 100%;
-        height: 100vh;
-        -webkit-user-select: none;
-        user-select: none;
-      }
-      #info {
-        position: absolute;
-        left: 50%;
-        bottom: 0;
-        transform: translate(-50%, 0);
-        margin: 1em;
-        z-index: 10;
-        display: block;
-        line-height: 2em;
-        text-align: center;
-      }
-      #info * {
-        color: #fff;
-      }
-      .title {
-        background-color: rgba(40, 40, 40, 0.4);
-        padding: 0.4em 0.6em;
-        border-radius: 0.1em;
-      }
-      .links {
-        background-color: rgba(40, 40, 40, 0.6);
-        padding: 0.4em 0.6em;
-        border-radius: 0.1em;
-      }
-      canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
-    </style>
-  </head>
 
-  <body>
-    <div id="info">
-      <span class="title">Tap to spawn portals</span><br/>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal AR (A-Frame + AR.js)</title>
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- AR.js for A-Frame -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: white;
+    }
+
+    #instructions {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 20px;
+      box-sizing: border-box;
+      text-align: center;
+      z-index: 10;
+      font-size: 14px;
+    }
+
+    #instructions a {
+      color: #4dd0e1;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    #error-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #error-content {
+      background-color: #1a1a1a;
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 500px;
+      text-align: center;
+      border: 2px solid #ff4444;
+    }
+
+    #error-content h2 {
+      color: #ff4444;
+      margin-top: 0;
+    }
+
+    #error-content p {
+      margin: 15px 0;
+      line-height: 1.6;
+    }
+
+    #error-content ul {
+      text-align: left;
+      margin: 20px 0;
+    }
+
+    #error-content li {
+      margin: 10px 0;
+    }
+
+    .retry-button {
+      background-color: #4dd0e1;
+      color: #000;
+      border: none;
+      padding: 12px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    .retry-button:hover {
+      background-color: #26c6da;
+    }
+
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      flex-direction: column;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid #4dd0e1;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="instructions">
+    <p>
+      Point at Marker to view Innovation Hub logo | <strong>Hiro marker</strong><br>
+      <a href="https://raw.githack.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" target="_blank">View Hiro Marker</a>
+    </p>
+  </div>
+
+  <div id="error-overlay">
+    <div id="error-content">
+      <h2>Webcam Error</h2>
+      <p>There was an issue accessing your webcam. Please try the following:</p>
+      <ul>
+        <li>Ensure your webcam is connected and not being used by another application.</li>
+        <li>Check your browser settings to ensure webcam access is allowed.</li>
+        <li>Reload the page and try again.</li>
+      </ul>
+      <button class="retry-button" onclick="retryWebcamAccess()">Retry</button>
     </div>
+  </div>
 
-    <script src="./third_party/three.js/three.js"></script>
-    <script src="./third_party/three.js/VRControls.js"></script>
-    <script src="./dist/three.ar.js"></script>
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <p>Initializing AR experience...</p>
+  </div>
 
-    <script>
-    var vrDisplay;
-    var vrFrameData;
-    var vrControls;
-    var arView;
-    var canvas;
-    var camera;
-    var scene;
-    var renderer;
-    var cube;
-    var colors = [
-      new THREE.Color( 0xffffff ),
-      new THREE.Color( 0xffff00 ),
-      new THREE.Color( 0xff00ff ),
-      new THREE.Color( 0xff0000 ),
-      new THREE.Color( 0x00ffff ),
-      new THREE.Color( 0x00ff00 ),
-      new THREE.Color( 0x0000ff ),
-      new THREE.Color( 0x000000 )
-    ];
-    var portal = null;
-    var images = [
-      "./assets/IMG_1727.jpg",
-      "./assets/IMG_1728.jpg",
-      "./assets/IMG_1732.jpg",
-      "./assets/IMG_1733.jpg",
-      "./assets/IMG_1736.jpg",
-    ];
-    var audio = [
-      new Audio("./assets/get_schwifty_in_here.wav"),
-      new Audio("./assets/Hi_I'm_mr_meeseeks_look_at_me.wav"),
-      new Audio("./assets/I_like_what_you_got.wav"),
-      new Audio("./assets/Oooo_yeah__caaan_doo!.wav"),
-      new Audio("./assets/rick.wav"),
-      new Audio("./assets/Riggity.wav"),
-      new Audio("./assets/woo_vu_luvub_dub_dub.wav")
-    ];
+  <!-- Preload audio assets -->
 
-    /**
-     * Use the `getARDisplay()` utility to leverage the WebVR API
-     * to see if there are any AR-capable WebVR VRDisplays. Returns
-     * a valid display if found. Otherwise, display the unsupported
-     * browser message.
-     */
-    THREE.ARUtils.getARDisplay().then(function (display) {
-      if (display) {
-        vrFrameData = new VRFrameData();
-        vrDisplay = display;
-        init();
-      } else {
-        THREE.ARUtils.displayUnsupportedMessage();
+  <a-scene embedded
+    arjs="sourceType: webcam; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono_and_matrix; matrixCodeType: 3x3; smoothCount: 10; smoothTolerance: 0.01; smoothThreshold: 2;"
+    vr-mode-ui="enabled: false">
+    <!-- Preload 360 image assets -->
+    <a-assets>
+      <img id="img1" src="./assets/IMG_1731.jpg" crossorigin="anonymous">
+      <img id="img2" src="./assets/IMG_1732.jpg" crossorigin="anonymous">
+      <img id="img3" src="./assets/IMG_1736.jpg" crossorigin="anonymous">
+    </a-assets>
+
+    <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="2" id="hiro-marker">
+      <!-- Portal Root - positioned so bottom of portal is at marker -->
+      <a-entity id="portal-root" position="0 0 0" rotation="-90 0 0" position-locker>
+
+        <!-- Portal Frame (vertical, upright) - NOW SQUARE 1x1 with enhanced glow -->
+        <a-entity id="portal-frame">
+          <!-- Left beam -->
+          <a-cylinder position="-0.5 0 0" radius="0.025" height="1"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.4; metalness: 0.9; roughness: 0.2">
+          </a-cylinder>
+          <!-- Right beam -->
+          <a-cylinder position="0.5 0 0" radius="0.025" height="1"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.4; metalness: 0.9; roughness: 0.2">
+          </a-cylinder>
+          <!-- Top beam -->
+          <a-cylinder position="0 0.5 0" radius="0.025" height="1" rotation="0 0 90"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.4; metalness: 0.9; roughness: 0.2">
+          </a-cylinder>
+          <!-- Bottom beam -->
+          <a-cylinder position="0 -0.5 0" radius="0.025" height="1" rotation="0 0 90"
+            material="color: #A0B0C0; emissive: #8A9BA8; emissiveIntensity: 0.4; metalness: 0.9; roughness: 0.2">
+          </a-cylinder>
+
+          <!-- Corner glow spheres for extra portal effect -->
+          <a-sphere position="-0.5 0.5 0" radius="0.035"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.8; shader: flat; transparent: true; opacity: 0.4">
+          </a-sphere>
+          <a-sphere position="0.5 0.5 0" radius="0.035"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.8; shader: flat; transparent: true; opacity: 0.4">
+          </a-sphere>
+          <a-sphere position="-0.5 -0.5 0" radius="0.035"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.8; shader: flat; transparent: true; opacity: 0.4">
+          </a-sphere>
+          <a-sphere position="0.5 -0.5 0" radius="0.035"
+            material="color: #A0B0C0; emissive: #A0B0C0; emissiveIntensity: 0.8; shader: flat; transparent: true; opacity: 0.4">
+          </a-sphere>
+        </a-entity>
+
+        <!-- Portal Inside View (visible when camera is BEHIND portal, z < 0) -->
+        <a-entity id="portal-inside" visible="false">
+          <!-- Depth-only occluder plane - NOW SQUARE 1x1 -->
+          <a-plane position="0 0 0.001" width="1" height="1" rotation="0 180 0" depth-mask-material>
+          </a-plane>
+          <!-- Full 360 sphere - INCREASED RADIUS for less zoom -->
+          <a-sphere radius="30" position="0 0 -0.1" rotation="0 180 0"
+            material="src: #img1; side: double; shader: flat">
+          </a-sphere>
+
+          <!-- 3D "IMD" Logo - Text scaled to 1.0, decorations scaled to 0.2 -->
+          <a-entity id="logo-imd" position="0 0 -2" rotation="0 0 0">
+            <!-- IMD Text layers - scaled to 1.0 (5x bigger) -->
+            <a-entity scale="1.0 1.0 1.0">
+              <!-- Layer 1 - Front (brightest) -->
+              <a-text value="IMD" position="0 0 0.15" align="center" color="#0066CC" width="6" shader="standard"
+                metalness="0.9" roughness="0.1" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 2 -->
+              <a-text value="IMD" position="0 0 0.13" align="center" color="#0062C4" width="6" shader="standard"
+                metalness="0.9" roughness="0.1" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 3 -->
+              <a-text value="IMD" position="0 0 0.11" align="center" color="#005EBD" width="6" shader="standard"
+                metalness="0.9" roughness="0.1" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 4 -->
+              <a-text value="IMD" position="0 0 0.09" align="center" color="#0059B3" width="6" shader="standard"
+                metalness="0.8" roughness="0.2" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 5 -->
+              <a-text value="IMD" position="0 0 0.07" align="center" color="#0055AA" width="6" shader="standard"
+                metalness="0.8" roughness="0.2" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 6 -->
+              <a-text value="IMD" position="0 0 0.05" align="center" color="#0051A0" width="6" shader="standard"
+                metalness="0.8" roughness="0.2" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 7 -->
+              <a-text value="IMD" position="0 0 0.03" align="center" color="#004C99" width="6" shader="standard"
+                metalness="0.7" roughness="0.3" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 8 -->
+              <a-text value="IMD" position="0 0 0.01" align="center" color="#004890" width="6" shader="standard"
+                metalness="0.7" roughness="0.3" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 9 -->
+              <a-text value="IMD" position="0 0 -0.01" align="center" color="#004486" width="6" shader="standard"
+                metalness="0.6" roughness="0.4" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 10 -->
+              <a-text value="IMD" position="0 0 -0.03" align="center" color="#004080" width="6" shader="standard"
+                metalness="0.6" roughness="0.4" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 11 -->
+              <a-text value="IMD" position="0 0 -0.05" align="center" color="#003C77" width="6" shader="standard"
+                metalness="0.5" roughness="0.5" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 12 - Back (darkest) -->
+              <a-text value="IMD" position="0 0 -0.07" align="center" color="#003366" width="6" shader="standard"
+                metalness="0.5" roughness="0.5" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+            </a-entity>
+
+            <!-- Decorations (spheres and ring) - kept at original scale 0.2 -->
+            <a-entity scale="0.2 0.2 0.2">
+              <!-- Orbiting spheres -->
+              <a-sphere radius="0.15" position="1.2 0.5 0"
+                material="color: #0066CC; emissive: #0066CC; emissiveIntensity: 0.7; metalness: 0.8"
+                animation="property: object3D.position.x; to: -1.2; from: 1.2; loop: true; dur: 3000; dir: alternate; easing: easeInOutSine">
+              </a-sphere>
+
+              <a-sphere radius="0.15" position="-1.2 -0.5 0"
+                material="color: #003366; emissive: #003366; emissiveIntensity: 0.7; metalness: 0.8"
+                animation="property: object3D.position.x; to: 1.2; from: -1.2; loop: true; dur: 3000; dir: alternate; easing: easeInOutSine">
+              </a-sphere>
+
+              <!-- Rotating ring -->
+              <a-torus position="0 0 0" radius="1.8" radius-tubular="0.05"
+                material="color: #0066CC; emissive: #0066CC; emissiveIntensity: 1.0; metalness: 0.9; roughness: 0.1"
+                rotation="0 0 0" animation="property: rotation; to: 360 360 0; loop: true; dur: 10000; easing: linear">
+              </a-torus>
+            </a-entity>
+          </a-entity>
+
+          <!-- 3D Text under the logo -->
+          <a-entity position="0 -0.5 -2">
+            <!-- "Innovation" text with multiple 3D layers for depth -->
+            <a-text value="Innovation" position="0 0.1 0.02" align="center" color="#FFFFFF" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0.015" align="center" color="#F5F5F5" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0.01" align="center" color="#EBEBEB" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0.005" align="center" color="#E0E0E0" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0" align="center" color="#D6D6D6" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 -0.005" align="center" color="#CCCCCC" width="3"
+              shader="standard" metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 -0.01" align="center" color="#C2C2C2" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 -0.015" align="center" color="#B8B8B8" width="3"
+              shader="standard" metalness="0.8" roughness="0.2">
+            </a-text>
+
+            <!-- "Hub" text with multiple 3D layers for depth -->
+            <a-text value="Hub" position="0 -0.1 0.02" align="center" color="#FFFFFF" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0.015" align="center" color="#F5F5F5" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0.01" align="center" color="#EBEBEB" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0.005" align="center" color="#E0E0E0" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0" align="center" color="#D6D6D6" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 -0.005" align="center" color="#CCCCCC" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 -0.01" align="center" color="#C2C2C2" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 -0.015" align="center" color="#B8B8B8" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+          </a-entity>
+        </a-entity>
+
+        <!-- Portal Outside View (visible when camera is IN FRONT of portal, z >= 0) -->
+        <a-entity id="portal-outside" visible="true">
+          <!-- Occluders positioned to create a tight mask around the 1x1 SQUARE portal window -->
+          <!-- Portal window: 1 wide (-0.5 to +0.5) x 1 tall (-0.5 to +0.5) -->
+
+          <!-- Top occluder (immediately above y=0.5) -->
+          <a-plane position="0 2.5 0.05" width="10" height="4" rotation="0 0 0" depth-mask-material></a-plane>
+
+          <!-- Bottom occluder (immediately below y=-0.5) -->
+          <a-plane position="0 -2.5 0.05" width="10" height="4" rotation="0 0 0" depth-mask-material></a-plane>
+
+          <!-- Left occluder (immediately left of x=-0.5) -->
+          <a-plane position="-3 0 0.05" width="5" height="10" rotation="0 0 0" depth-mask-material></a-plane>
+
+          <!-- Right occluder (immediately right of x=0.5) -->
+          <a-plane position="3 0 0.05" width="5" height="10" rotation="0 0 0" depth-mask-material></a-plane>
+
+          <!-- Half-sphere (full 180° hemisphere visible from outside) - INCREASED RADIUS -->
+          <a-sphere id="outside-sphere" radius="30" position="0 0 -0.1" segments-height="18" segments-width="32"
+            theta-start="0" theta-length="180" material="src: #img1; side: back; shader: flat">
+          </a-sphere>
+
+          <!-- 3D "IMD" Logo - Text scaled to 1.0, decorations scaled to 0.2 -->
+          <a-entity id="logo-imd" position="0 0 -2" rotation="0 0 0">
+            <!-- IMD Text layers - scaled to 1.0 (5x bigger) -->
+            <a-entity scale="1.0 1.0 1.0">
+              <!-- Layer 1 - Front (brightest) -->
+              <a-text value="IMD" position="0 0 0.15" align="center" color="#0066CC" width="6" shader="standard"
+                metalness="0.9" roughness="0.1" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 2 -->
+              <a-text value="IMD" position="0 0 0.13" align="center" color="#0062C4" width="6" shader="standard"
+                metalness="0.9" roughness="0.1" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 3 -->
+              <a-text value="IMD" position="0 0 0.11" align="center" color="#005EBD" width="6" shader="standard"
+                metalness="0.9" roughness="0.1" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 4 -->
+              <a-text value="IMD" position="0 0 0.09" align="center" color="#0059B3" width="6" shader="standard"
+                metalness="0.8" roughness="0.2" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 5 -->
+              <a-text value="IMD" position="0 0 0.07" align="center" color="#0055AA" width="6" shader="standard"
+                metalness="0.8" roughness="0.2" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 6 -->
+              <a-text value="IMD" position="0 0 0.05" align="center" color="#0051A0" width="6" shader="standard"
+                metalness="0.8" roughness="0.2" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 7 -->
+              <a-text value="IMD" position="0 0 0.03" align="center" color="#004C99" width="6" shader="standard"
+                metalness="0.7" roughness="0.3" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 8 -->
+              <a-text value="IMD" position="0 0 0.01" align="center" color="#004890" width="6" shader="standard"
+                metalness="0.7" roughness="0.3" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 9 -->
+              <a-text value="IMD" position="0 0 -0.01" align="center" color="#004486" width="6" shader="standard"
+                metalness="0.6" roughness="0.4" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 10 -->
+              <a-text value="IMD" position="0 0 -0.03" align="center" color="#004080" width="6" shader="standard"
+                metalness="0.6" roughness="0.4" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 11 -->
+              <a-text value="IMD" position="0 0 -0.05" align="center" color="#003C77" width="6" shader="standard"
+                metalness="0.5" roughness="0.5" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+
+              <!-- Layer 12 - Back (darkest) -->
+              <a-text value="IMD" position="0 0 -0.07" align="center" color="#003366" width="6" shader="standard"
+                metalness="0.5" roughness="0.5" font="roboto"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+              </a-text>
+            </a-entity>
+
+            <!-- Decorations (spheres and ring) - kept at original scale 0.2 -->
+            <a-entity scale="0.2 0.2 0.2">
+              <!-- Orbiting spheres -->
+              <a-sphere radius="0.15" position="1.2 0.5 0"
+                material="color: #0066CC; emissive: #0066CC; emissiveIntensity: 0.7; metalness: 0.8"
+                animation="property: object3D.position.x; to: -1.2; from: 1.2; loop: true; dur: 3000; dir: alternate; easing: easeInOutSine">
+              </a-sphere>
+
+              <a-sphere radius="0.15" position="-1.2 -0.5 0"
+                material="color: #003366; emissive: #003366; emissiveIntensity: 0.7; metalness: 0.8"
+                animation="property: object3D.position.x; to: 1.2; from: -1.2; loop: true; dur: 3000; dir: alternate; easing: easeInOutSine">
+              </a-sphere>
+
+              <!-- Rotating ring -->
+              <a-torus position="0 0 0" radius="1.8" radius-tubular="0.05"
+                material="color: #0066CC; emissive: #0066CC; emissiveIntensity: 1.0; metalness: 0.9; roughness: 0.1"
+                rotation="0 0 0" animation="property: rotation; to: 360 360 0; loop: true; dur: 10000; easing: linear">
+              </a-torus>
+            </a-entity>
+          </a-entity>
+
+          <!-- 3D Text under the logo -->
+          <a-entity position="0 -0.5 -2">
+            <!-- "Innovation" text with multiple 3D layers for depth -->
+            <a-text value="Innovation" position="0 0.1 0.02" align="center" color="#FFFFFF" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0.015" align="center" color="#F5F5F5" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0.01" align="center" color="#EBEBEB" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0.005" align="center" color="#E0E0E0" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 0" align="center" color="#D6D6D6" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 -0.005" align="center" color="#CCCCCC" width="3"
+              shader="standard" metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 -0.01" align="center" color="#C2C2C2" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Innovation" position="0 0.1 -0.015" align="center" color="#B8B8B8" width="3"
+              shader="standard" metalness="0.8" roughness="0.2">
+            </a-text>
+
+            <!-- "Hub" text with multiple 3D layers for depth -->
+            <a-text value="Hub" position="0 -0.1 0.02" align="center" color="#FFFFFF" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0.015" align="center" color="#F5F5F5" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0.01" align="center" color="#EBEBEB" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0.005" align="center" color="#E0E0E0" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 0" align="center" color="#D6D6D6" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 -0.005" align="center" color="#CCCCCC" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 -0.01" align="center" color="#C2C2C2" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+            <a-text value="Hub" position="0 -0.1 -0.015" align="center" color="#B8B8B8" width="3" shader="standard"
+              metalness="0.8" roughness="0.2">
+            </a-text>
+          </a-entity>
+        </a-entity>
+
+      </a-entity>
+    </a-marker>
+
+    <a-entity camera look-controls="enabled: false"></a-entity>
+    <a-entity light="type: ambient; intensity: 0.5"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8" position="1 1 1"></a-entity>
+  </a-scene>
+
+  <script>
+    // Register depth-mask material component (writes to depth buffer only, not color)
+    AFRAME.registerComponent('depth-mask-material', {
+      init: function () {
+        const applyMaterial = () => {
+          const mesh = this.el.getObject3D('mesh');
+          if (mesh) {
+            mesh.material = new THREE.MeshBasicMaterial({
+              colorWrite: false,
+              depthWrite: true,
+              depthTest: true
+            });
+            mesh.renderOrder = -1;
+            mesh.material.needsUpdate = true;
+          }
+        };
+
+        this.el.addEventListener('object3dset', applyMaterial);
+        if (this.el.getObject3D('mesh')) {
+          applyMaterial();
+        }
+        setTimeout(applyMaterial, 100);
+        setTimeout(applyMaterial, 500);
       }
     });
-    function init() {
-      // Turn on the debugging panel
-      var arDebug = new THREE.ARDebug(vrDisplay);
-      document.body.appendChild(arDebug.getElement());
-      // Setup the three.js rendering environment
-      renderer = new THREE.WebGLRenderer({ alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      console.log('setRenderer size', window.innerWidth, window.innerHeight);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.autoClear = false;
-      canvas = renderer.domElement;
-      document.body.appendChild(canvas);
-      scene = new THREE.Scene();
-      // Creating the ARView, which is the object that handles
-      // the rendering of the camera stream behind the three.js
-      // scene
-      arView = new THREE.ARView(vrDisplay, renderer);
-      // The ARPerspectiveCamera is very similar to THREE.PerspectiveCamera,
-      // except when using an AR-capable browser, the camera uses
-      // the projection matrix provided from the device, so that the
-      // perspective camera's depth planes and field of view matches
-      // the physical camera on the device.
-      camera = new THREE.ARPerspectiveCamera(
-        vrDisplay,
-        60,
-        window.innerWidth / window.innerHeight,
-        vrDisplay.depthNear,
-        vrDisplay.depthFar
-      );
-      // VRControls is a utility from three.js that applies the device's
-      // orientation/position to the perspective camera, keeping our
-      // real world and virtual world in sync.
-      vrControls = new THREE.VRControls(camera);
-      // Create the cube geometry that we'll copy and place in the
-      // scene when the user clicks the screen
-      var geometry = new THREE.BoxGeometry( 0.05, 0.05, 0.05 );
-      var faceIndices = ['a', 'b', 'c'];
-      for (var i = 0; i < geometry.faces.length; i++) {
-        var f  = geometry.faces[i];
-        for (var j = 0; j < 3; j++) {
-          var vertexIndex = f[faceIndices[ j ]];
-          f.vertexColors[j] = colors[vertexIndex];
+
+    // Portal management
+    let currentImageIndex = 0;
+    const images = ['#img1', '#img2', '#img3']; // Updated to only 3 images
+
+    // Debounce for click events to prevent rapid changes
+    let isChangingPortal = false;
+    const PORTAL_CHANGE_COOLDOWN = 300; // ms
+
+    // Tap to change portal image
+    document.addEventListener('click', function () {
+      if (isChangingPortal) return;
+      isChangingPortal = true;
+
+      // Random image
+      currentImageIndex = Math.floor(Math.random() * images.length);
+      const newImage = images[currentImageIndex];
+
+      // Update both spheres
+      const insideSphere = document.querySelector('#portal-inside a-sphere');
+      const outsideSphere = document.querySelector('#outside-sphere');
+
+      if (insideSphere) {
+        insideSphere.setAttribute('material', 'src', newImage);
+      }
+      if (outsideSphere) {
+        outsideSphere.setAttribute('material', 'src', newImage);
+      }
+
+      setTimeout(() => {
+        isChangingPortal = false;
+      }, PORTAL_CHANGE_COOLDOWN);
+    });
+
+    // Register portal visibility component with hysteresis
+    AFRAME.registerComponent('portal-visibility', {
+      init: function () {
+        this.portalRoot = null;
+        this.insideView = null;
+        this.outsideView = null;
+        this.lastState = null;
+        this.hysteresisThreshold = 0.05; // Threshold to prevent rapid switching
+        this.frameCount = 0;
+        this.updateFrequency = 2; // Update every N frames for performance
+      },
+
+      tick: function () {
+        // Throttle updates for better performance
+        this.frameCount++;
+        if (this.frameCount % this.updateFrequency !== 0) return;
+
+        const camera = this.el.sceneEl.camera;
+
+        // Cache DOM queries
+        if (!this.portalRoot) this.portalRoot = document.querySelector('#portal-root');
+        if (!this.insideView) this.insideView = document.querySelector('#portal-inside');
+        if (!this.outsideView) this.outsideView = document.querySelector('#portal-outside');
+
+        if (!camera || !this.portalRoot || !this.insideView || !this.outsideView) return;
+
+        // Get camera position in portal's LOCAL space
+        const localPosition = new THREE.Vector3();
+        camera.getWorldPosition(localPosition);
+        this.portalRoot.object3D.worldToLocal(localPosition);
+
+        // Apply hysteresis to prevent flickering at the boundary
+        let isInside;
+        if (this.lastState === null) {
+          isInside = localPosition.z < 0;
+        } else if (this.lastState === true) {
+          // Currently inside, need to move further out to switch
+          isInside = localPosition.z < this.hysteresisThreshold;
+        } else {
+          // Currently outside, need to move further in to switch
+          isInside = localPosition.z < -this.hysteresisThreshold;
+        }
+
+        // Only update if state changed
+        if (isInside !== this.lastState) {
+          this.insideView.setAttribute('visible', isInside);
+          this.outsideView.setAttribute('visible', !isInside);
+          this.lastState = isInside;
         }
       }
-      var material = new THREE.MeshBasicMaterial({ vertexColors: THREE.VertexColors });
-      cube = new THREE.Mesh(geometry, material);
-      // Bind our event handlers
-      window.addEventListener('resize', onWindowResize, false);
-      canvas.addEventListener('touchstart', onClick, false);
-      // Kick off the render loop!
-      update();
+    });
+
+    // Add component to scene after it's loaded
+    document.querySelector('a-scene').addEventListener('loaded', function () {
+      hideLoadingOverlay();
+      this.setAttribute('portal-visibility', '');
+      console.log('Portal AR initialized with enhanced stability');
+    });
+
+    // Handle marker found/lost events for better stability
+    document.querySelector('a-marker').addEventListener('markerFound', function () {
+      console.log('Marker detected');
+    });
+
+    document.querySelector('a-marker').addEventListener('markerLost', function () {
+      console.log('Marker lost');
+    });
+
+    // Webcam error handling and retry logic
+    function showErrorOverlay() {
+      document.getElementById('error-overlay').style.display = 'flex';
     }
 
-    var counter = 0;
-    /**
-     * The render loop, called once per frame. Handles updating
-     * our scene and rendering.
-     */
-    function update() {      
-      camera.updateMatrixWorld();
-      var vec = camera.position.clone();
-      vec.applyMatrix4( camera.matrixWorld );
-      
-      if(portal !== null){
-        updatePortal(portal, vec, counter);
-      }
-      counter++;
-      
-      // Clears color from the frame before rendering the camera (arView) or scene.
-      renderer.clearColor();
-      // Render the device's camera stream on screen first of all.
-      // It allows to get the right pose synchronized with the right frame.
-      arView.render();
-      // Update our camera projection matrix in the event that
-      // the near or far planes have updated
-      camera.updateProjectionMatrix();
-      // From the WebVR API, populate `vrFrameData` with
-      // updated information for the frame
-      vrDisplay.getFrameData(vrFrameData);
-      // Update our perspective camera's positioning
-      vrControls.update();
-      // Render our three.js virtual scene
-      renderer.clearDepth();
-      renderer.render(scene, camera);
-      // Kick off the requestAnimationFrame to call this function
-      // when a new VRDisplay frame is rendered
-      vrDisplay.requestAnimationFrame(update);
-    }
-    /**
-     * On window resize, update the perspective camera's aspect ratio,
-     * and call `updateProjectionMatrix` so that we can get the latest
-     * projection matrix provided from the device
-     */
-    function onWindowResize () {
-      console.log('setRenderer size', window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-    /**
-     * When clicking on the screen, create a cube at the user's
-     * current position.
-     */
-    function onClick () {
-      // Fetch the pose data from the current frame
-      var pose = vrFrameData.pose;
-      // Convert the pose orientation and position into
-      // THREE.Quaternion and THREE.Vector3 respectively
-      var ori = new THREE.Quaternion(
-        pose.orientation[0],
-        pose.orientation[1],
-        pose.orientation[2],
-        pose.orientation[3]
-      );
-      var pos = new THREE.Vector3(
-        pose.position[0],
-        pose.position[1],
-        pose.position[2]
-      );
-      var dirMtx = new THREE.Matrix4();
-      dirMtx.makeRotationFromQuaternion(ori);
-      var push = new THREE.Vector3(0, 0, -1.0);
-      push.transformDirection(dirMtx);
-      pos.addScaledVector(push, 0.125);
-
-      var portalDoor = new Portal360(images[Math.floor(Math.random()*images.length)], 1, 2);
-      if(portal === null){
-        portal = portalDoor;
-      }
-      else{
-        for (var i = scene.children.length - 1; i >= 0; i--) {
-          scene.remove(scene.children[i]);
-        }
-      }
-
-      scene.add(portalDoor.object);
-      portalDoor.object.position.copy(pos);
-      portalDoor.object.quaternion.copy(ori);
-
-      audio[Math.floor(Math.random()*audio.length)].play();
+    function hideErrorOverlay() {
+      document.getElementById('error-overlay').style.display = 'none';
     }
 
-    function Portal360(videoImageURL, doorWidth, doorHeight, scene, pos, ori){
-      this.object = new THREE.Group;
-      this.object.position.y = doorHeight/4;
-      this.width = doorWidth;
-      this.height = doorHeight;
-      
-      var texture360 = new THREE.TextureLoader().load(videoImageURL);
-      texture360.minFilter = THREE.NearestFilter;
-      texture360.format = THREE.RGBFormat;
-      texture360.flipY = false;  
-
-      // create insideMesh which is visible IIF inside the portal
-      var insideMesh = _buildInsideMesh(texture360, doorWidth, doorHeight);
-      this.object.add(insideMesh);
-      this.insideMesh = insideMesh;
-
-      // create outsideMesh which is visible IIF outside the portal
-      var outsideMesh = _buildOutsideMesh(texture360, doorWidth, doorHeight);
-      this.object.add(outsideMesh);
-      this.outsideMesh = outsideMesh;
-
-      // create frameMesh for the frame of the portal
-      var frameMesh = _buildRectangularFrame(doorWidth/100, doorWidth, doorHeight);
-      this.frameMesh = frameMesh;
-      this.object.add(frameMesh);
-
-      this.outsideMesh.visible = true;
-      this.insideMesh.visible = false;
+    function showLoadingOverlay() {
+      document.getElementById('loading-overlay').style.display = 'flex';
     }
 
-    function buildTransparentMaterial(){
-      // if there is a cached version, return it
-      if(buildTransparentMaterial.material){
-        return buildTransparentMaterial.material;
-      }
-      var material = new THREE.MeshBasicMaterial({
-        colorWrite: false // only write to z-buf
-      });
-
-      // cache the material
-      buildTransparentMaterial.material = material;
-      
-      return material;
+    function hideLoadingOverlay() {
+      document.getElementById('loading-overlay').style.display = 'none';
     }
 
-    function buildSquareCache(){
-      var container = new THREE.Group;
-      var geometry = new THREE.PlaneGeometry(50,50);
-      var material = buildTransparentMaterial();
-
-      var mesh = new THREE.Mesh( geometry, material);
-      mesh.position.x =  geometry.parameters.width/2 + 0.5;
-      mesh.position.y = -geometry.parameters.height/2 + 0.5;
-      container.add(mesh);
-      
-      var mesh = new THREE.Mesh( geometry, material);
-      mesh.position.x = -geometry.parameters.width/2 + 0.5;
-      mesh.position.y = -geometry.parameters.height/2 - 0.5;
-      container.add(mesh);
-      
-      var mesh = new THREE.Mesh( geometry, material);
-      mesh.position.x = -geometry.parameters.width/2 - 0.5;
-      mesh.position.y =  geometry.parameters.height/2 - 0.5;
-      container.add(mesh);
-      
-      var mesh = new THREE.Mesh( geometry, material);
-      mesh.position.x = +geometry.parameters.width/2 - 0.5;
-      mesh.position.y =  geometry.parameters.height/2 + 0.5;
-      container.add(mesh);
-
-      return container;
+    function retryWebcamAccess() {
+      hideErrorOverlay();
     }
 
-    //create insideMesh which is visible IIF inside the portal
-    function _buildInsideMesh(texture360, doorWidth, doorHeight){
-      var doorInsideCenter = new THREE.Group;
+  </script>
+</body>
 
-      var geometry = new THREE.PlaneGeometry(doorWidth, doorHeight);
-      var material = buildTransparentMaterial();
-      var mesh = new THREE.Mesh(geometry, material);
-      mesh.rotation.y = Math.PI;
-      doorInsideCenter.add(mesh);
-
-      // add 360 sphere
-      // add 360 texture
-      var radius360Sphere = 10
-
-      var geometry = new THREE.SphereGeometry(radius360Sphere, 16, 16).rotateZ(Math.PI);
-      var material = new THREE.MeshBasicMaterial({
-        map: texture360,
-        side: THREE.DoubleSide,
-      });
-      var sphere360Mesh = new THREE.Mesh(geometry, material);
-      sphere360Mesh.position.z = -0.1;
-      sphere360Mesh.rotation.y = Math.PI;
-      sphere360Mesh.name = "mesh";
-      doorInsideCenter.add(sphere360Mesh);
-      
-      return doorInsideCenter;
-    }
-
-    // create outsideMesh which is visible IIF outside the portal
-    function _buildOutsideMesh(texture360, doorWidth, doorHeight){
-      var doorOutsideCenter = new THREE.Group;
-
-      // add squareCache
-      var squareCache = buildSquareCache();
-      squareCache.scale.y = doorWidth;
-      squareCache.scale.y = doorHeight;
-      doorOutsideCenter.add(squareCache);
-
-      // add 360 sphere
-      // add 360 texture
-      var radius360Sphere = 10
-
-      // build half sphere geometry
-      var geometry = new THREE.SphereGeometry(radius360Sphere, 16, 16, Math.PI, Math.PI, 0, Math.PI).rotateZ(Math.PI);
-      // fix UVs
-      geometry.faceVertexUvs[0].forEach(function(faceUvs){
-        faceUvs.forEach(function(uv){
-          uv.x /= 2
-        });
-      });
-      geometry.uvsNeedUpdate = true;
-      var material = new THREE.MeshBasicMaterial({
-        map: texture360,
-        side: THREE.BackSide,
-      });
-      var sphere360Mesh = new THREE.Mesh(geometry, material);
-      sphere360Mesh.position.z = -0.1;
-      sphere360Mesh.name = "mesh";
-      doorOutsideCenter.add(sphere360Mesh);
-      
-      return doorOutsideCenter;
-    }
-
-    // create frameMesh for the frame of the portal
-    function _buildRectangularFrame(radius, width, height){
-      var container = new THREE.Group;
-      var material = new THREE.MeshNormalMaterial();
-      var material = new THREE.MeshPhongMaterial({
-        color: 'silver',
-        emissive: 'green'
-      });
-
-      var geometryBeamVertical = new THREE.CylinderGeometry(radius, radius, height - radius);
-
-      // mesh right
-      var meshRight = new THREE.Mesh(geometryBeamVertical, material);
-      meshRight.position.x = width/2;
-      meshRight.name = "right";
-      container.add(meshRight);
-
-      // mesh right
-      var meshLeft = new THREE.Mesh(geometryBeamVertical, material);
-      meshLeft.position.x = -width/2;
-      meshLeft.name = "left";
-      container.add(meshLeft);
-
-      var geometryBeamHorizontal = new THREE.CylinderGeometry(radius, radius, width - radius).rotateZ(Math.PI/2);
-
-      // mesh top
-      var meshTop = new THREE.Mesh(geometryBeamHorizontal, material);
-      meshTop.position.y = height/2;
-      meshTop.name = "top";
-      container.add(meshTop);
-
-      // mesh bottom
-      var meshBottom = new THREE.Mesh(geometryBeamHorizontal, material);
-      meshBottom.position.y = -height/2;
-      meshBottom.name = "bottom";
-      container.add(meshBottom);
-      return container;
-    } 
-
-    // update function
-    function isIn(z){
-      return z <= 0;
-    }
-
-    function updatePortal(portal, vec, counter) {
-      // determine if the user is isOutsidePortal
-      var localPosition = new THREE.Vector3;
-      portal.object.worldToLocal(localPosition);
-      portal.object.worldToLocal(vec);
-      var isOutsidePortal = !isIn(vec.z);
-
-      // handle mesh visibility based on isOutsidePortal
-      if( isOutsidePortal ){
-        portal.outsideMesh.visible = true;
-        portal.insideMesh.visible = false;
-      }
-      else{
-        portal.outsideMesh.visible = false;
-        portal.insideMesh.visible = true;
-      }
-    }
-    </script>
-  </body>
 </html>
-
+````
