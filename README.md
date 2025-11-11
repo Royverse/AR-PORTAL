@@ -92,6 +92,80 @@ Originally inspired by the spawn-at-camera example from Google's [three.ar.js](h
 
 Updated to use [A-Frame](https://aframe.io/) and [AR.js](https://github.com/AR-js-org/AR.js) for broader compatibility and improved performance.
 
+## Base prompt for app:
+
+Prompt: Create a single-file AR "Portal" Web App
+
+Objective:
+Create a single-file HTML web application (index.html) that uses A-Frame and AR.js to create a "portal" effect on a marker. The portal should appear as a 3D hole in the marker, revealing a new "world" inside that is only visible when looking through the portal frame.
+
+Core Technologies:
+
+A-Frame: Load version 1.5.0 from its CDN.
+
+AR.js 3: Load the A-Frame build from the raw.githack.com CDN.
+
+HTML Structure: All CSS and JavaScript must be contained within the single index.html file.
+
+Functional Requirements:
+
+Instruction UI:
+
+Create a <div id="instructions"> overlay at the top of the screen.
+
+Style it with a semi-transparent black background and white text.
+
+The overlay must instruct the user to find the "Hiro" marker and provide a clickable link to view the marker image.
+
+AR Scene Setup:
+
+Configure an <a-scene> with embedded and arjs properties (sourceType: webcam, debugUIEnabled: false).
+
+Include an <a-marker> set to preset="hiro".
+
+Add an <a-entity camera> and basic ambient/directional lighting to the scene.
+
+Portal Rim (The "Window Frame"):
+
+Inside the <a-marker>, create an <a-entity id="portal-rim">.
+
+This entity must be rotated (rotation="-90 0 0") to lie flat on the marker.
+
+The rim must be constructed from four <a-box> primitives, arranged to form a 1x1 square frame.
+
+The rim must be colored magenta to be clearly visible.
+
+It should be slightly elevated (position="0 0.01 0") to prevent flickering with the marker.
+
+Portal World (The "Hole" Illusion):
+
+This is the most critical part. The portal must appear as a hole, and the contents must not be visible from the side (i.e., no "floating box" bug).
+
+Create an <a-entity id="portal-contents">.
+
+Inside this entity, build a 5-sided box (a "room" with 4 walls and a floor) using five separate <a-plane> elements.
+
+Crucial Illusion Logic: All five planes must have their material set to material="side: back". This will make them invisible from the outside, but visible when viewed from the inside (looking through the rim).
+
+Positioning:
+
+The "floor" plane (Bottom Wall) must be positioned to cover the Hiro marker's white area (e.g., position="0 -1 0", rotation="-90 0 0").
+
+The four "wall" planes must be positioned to form a 1x1x1 cube under the floor.
+
+The entire portal-contents entity should be positioned below the rim.
+
+World Contents:
+
+Inside this "box" (i.e., inside portal-contents), add a red (#E63946) <a-box>.
+
+Animate the red cube to spin continuously on its Y-axis.
+
+Add an <a-entity light="type: point"> inside the portal-contents to illuminate the red cube.
+
+
+Base prompt for logo
+
 ## License
 
 This project is provided as-is for educational and demonstration purposes.
