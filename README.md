@@ -164,7 +164,72 @@ Animate the red cube to spin continuously on its Y-axis.
 Add an <a-entity light="type: point"> inside the portal-contents to illuminate the red cube.
 
 
-Base prompt for logo
+Base prompt for logo:
+
+Complete A-Frame AR Logo Prompt:
+
+Create a 3D rotating "IMD" logo for an A-Frame AR.js application with the following exact specifications:
+
+Logo Structure:
+
+Parent entity: <a-entity id="logo-imd" position="0 0 -2" rotation="0 0 0">
+Two child entities with independent scaling:
+Text layers entity: scale="1.0 1.0 1.0"
+Decorations entity: scale="0.2 0.2 0.2"
+IMD Text Specifications (12 Layered Text Elements):
+
+Font: "roboto"
+Width: 6
+Alignment: center
+Shader: standard with varying metalness (0.9 to 0.5) and roughness (0.1 to 0.5)
+All layers rotate continuously: animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"
+12 Text Layers (Front to Back):
+
+Position: 0 0 0.15, Color: #0066CC, Metalness: 0.9, Roughness: 0.1
+Position: 0 0 0.13, Color: #0062C4, Metalness: 0.9, Roughness: 0.1
+Position: 0 0 0.11, Color: #005EBD, Metalness: 0.9, Roughness: 0.1
+Position: 0 0 0.09, Color: #0059B3, Metalness: 0.8, Roughness: 0.2
+Position: 0 0 0.07, Color: #0055AA, Metalness: 0.8, Roughness: 0.2
+Position: 0 0 0.05, Color: #0051A0, Metalness: 0.8, Roughness: 0.2
+Position: 0 0 0.03, Color: #004C99, Metalness: 0.7, Roughness: 0.3
+Position: 0 0 0.01, Color: #004890, Metalness: 0.7, Roughness: 0.3
+Position: 0 0 -0.01, Color: #004486, Metalness: 0.6, Roughness: 0.4
+Position: 0 0 -0.03, Color: #004080, Metalness: 0.6, Roughness: 0.4
+Position: 0 0 -0.05, Color: #003C77, Metalness: 0.5, Roughness: 0.5
+Position: 0 0 -0.07, Color: #003366, Metalness: 0.5, Roughness: 0.5
+Decorative Elements (Scale 0.2):
+
+Two Orbiting Spheres:
+
+Blue sphere:
+
+Radius: 0.15
+Start position: 1.2 0.5 0
+Material: color: #0066CC; emissive: #0066CC; emissiveIntensity: 0.7; metalness: 0.8
+Animation: property: object3D.position.x; to: -1.2; from: 1.2; loop: true; dur: 3000; dir: alternate; easing: easeInOutSine
+Dark blue sphere:
+
+Radius: 0.15
+Start position: -1.2 -0.5 0
+Material: color: #003366; emissive: #003366; emissiveIntensity: 0.7; metalness: 0.8
+Animation: property: object3D.position.x; to: 1.2; from: -1.2; loop: true; dur: 3000; dir: alternate; easing: easeInOutSine
+Rotating Torus Ring:
+
+Position: 0 0 0
+Radius: 1.8
+Tube radius: 0.05
+Material: color: #0066CC; emissive: #0066CC; emissiveIntensity: 1.0; metalness: 0.9; roughness: 0.1
+Animation: property: rotation; to: 360 360 0; loop: true; dur: 10000; easing: linear
+Color Gradient Pattern: The text layers create a gradient from bright blue (#0066CC) at the front to dark navy (#003366) at the back, with decreasing metalness (0.9→0.5) and increasing roughness (0.1→0.5) for depth perception.
+
+Key Design Features:
+
+Text is 5x larger than decorations (scale 1.0 vs 0.2)
+All elements rotate continuously at different speeds
+Spheres oscillate horizontally in opposite directions
+Layered text creates 3D depth effect with gradient coloring
+High metalness and emissive properties create glowing effect
+Blue color scheme (#0066CC to #003366) maintains brand consistency
 
 ## License
 
