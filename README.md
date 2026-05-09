@@ -2,12 +2,7 @@
 
 **Innovation Hub** - Portal Augmented Reality Experience
 
-<p align="center">
-  <video src="https://github.com/RoyMootsana/AR-PORTAL/blob/main/assets/testivng%20.mp4?raw=true" width="100%" controls muted autoplay loop>
-    Your browser does not support the video tag.
-  </video>
-</p>
-
+![PortalAR Demo](https://github.com/RoyMootsana/AR-PORTAL/blob/main/assets/testivng%20.mp4?raw=true)
 ## Introduction
 
 PortalAR is a marker-based augmented reality web application that creates immersive 360° portal experiences. Point your camera at a Hiro marker to reveal a portal displaying 360° panoramic images of the Innovation Hub, complete with animated 3D branding and interactive features.
