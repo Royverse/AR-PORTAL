@@ -1,11 +1,15 @@
+
+
 # PortalAR
 
 **Innovation Hub** - Portal Augmented Reality Experience
 
-![PortalAR Demo](https://github.com/RoyMootsana/AR-PORTAL/blob/main/assets/testivng%20.mp4?raw=true)
+<video src="https://raw.githubusercontent.com/Royverse/AR-PORTAL/main/assets/testivng%20.mp4" width="100%" autoplay loop muted playsinline></video>
 ## Introduction
 
 PortalAR is a marker-based augmented reality web application that creates immersive 360° portal experiences. Point your camera at a Hiro marker to reveal a portal displaying 360° panoramic images of the Innovation Hub, complete with animated 3D branding and interactive features.
+
+
 
 This project evolved from a Rick and Morty-inspired portal concept (originally created for Hack@Brown 2018) into a professional AR showcase for the Innovation Hub, now built with modern A-Frame and AR.js technology.
 
