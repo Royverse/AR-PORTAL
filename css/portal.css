@@ -604,3 +604,22 @@ html, body {
     padding: 0 6px;
   }
 }
+
+/* ── Accessibility & Motion Enhancements ── */
+:focus-visible {
+  outline: 2px solid var(--portal-accent, #00e5ff);
+  outline-offset: 2px;
+}
+
+#cube-telemetry {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#030712">
   <title>AR PORTAL | Spatial WebAR Portal &amp; 3D In-Out Cube</title>
   <link rel="icon" href="./assets/icons/favicon.ico" sizes="48x48">
@@ -14,6 +14,21 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <!-- AR.js for A-Frame -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "AR Portal",
+    "description": "Spatial WebAR Portal and 3D In-Out Excursion Cube running live in mobile and desktop browsers.",
+    "applicationCategory": "MultimediaApplication",
+    "author": {
+      "@type": "Person",
+      "name": "Roy Mootsana",
+      "url": "https://roymootsana.art"
+    }
+  }
+  </script>
 </head>
 
 <body>
@@ -30,7 +45,7 @@
         <span id="tracking-text">Searching</span>
       </div>
 
-      <button id="btn-sim-mode" class="action-btn" onclick="window.toggleSimulationMode()" title="Toggle 3D Simulation Mode">
+      <button id="btn-sim-mode" class="action-btn" onclick="window.toggleSimulationMode()" title="Toggle 3D Simulation Mode" aria-label="Toggle 3D Simulation Mode">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
           <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
@@ -39,7 +54,7 @@
         <span>Sim</span>
       </button>
 
-      <button id="btn-marker-modal" class="action-btn" onclick="window.toggleMarkerModal(true)" title="View Hiro AR Target">
+      <button id="btn-marker-modal" class="action-btn" onclick="window.toggleMarkerModal(true)" title="View Hiro AR Target" aria-label="View Hiro AR Target">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="12" r="10"/>
           <circle cx="12" cy="12" r="6"/>
@@ -48,7 +63,7 @@
         <span>Target</span>
       </button>
 
-      <button id="btn-help-modal" class="action-btn" onclick="window.toggleHelpModal(true)" title="Quick Help &amp; Spatial Controls">
+      <button id="btn-help-modal" class="action-btn" onclick="window.toggleHelpModal(true)" title="Quick Help &amp; Spatial Controls" aria-label="Quick Help &amp; Spatial Controls">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="12" r="10"/>
           <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
@@ -68,13 +83,13 @@
     <div class="spatial-dock">
       <!-- 4K Nano Banana Spatial Worlds -->
       <div class="dock-segment world-segment">
-        <button class="dock-tab active" data-world="0" title="Cyber Nexus: Holographic Rotunda">
+        <button class="dock-tab active" data-world="0" title="Cyber Nexus: Holographic Rotunda" aria-label="Cyber Nexus World">
           <span>Nexus</span>
         </button>
-        <button class="dock-tab" data-world="1" title="Lunar Outpost: Surface Crater">
+        <button class="dock-tab" data-world="1" title="Lunar Outpost: Surface Crater" aria-label="Lunar Outpost World">
           <span>Lunar</span>
         </button>
-        <button class="dock-tab" data-world="2" title="Solarpunk Sanctuary: Bioluminescent Lake">
+        <button class="dock-tab" data-world="2" title="Solarpunk Sanctuary: Bioluminescent Lake" aria-label="Solarpunk Sanctuary World">
           <span>Eden</span>
         </button>
       </div>
@@ -83,7 +98,7 @@
 
       <!-- 3D Excursion Cube Trajectory -->
       <div class="dock-segment cube-segment">
-        <button class="dock-tab cube-btn active" data-mode="loop" title="In-Out Continuous Excursion Loop">
+        <button class="dock-tab cube-btn active" data-mode="loop" title="In-Out Continuous Excursion Loop" aria-label="Excursion Loop Mode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <polyline points="23 4 23 10 17 10"/>
             <polyline points="1 20 1 14 7 14"/>
@@ -91,14 +106,14 @@
           </svg>
           <span>Loop</span>
         </button>
-        <button class="dock-tab cube-btn" data-mode="out" title="Breach Out into Real-World 3D Space (+Z)">
+        <button class="dock-tab cube-btn" data-mode="out" title="Breach Out into Real-World 3D Space (+Z)" aria-label="Breach Out Mode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="12" y1="19" x2="12" y2="5"/>
             <polyline points="5 12 12 5 19 12"/>
           </svg>
           <span>Breach</span>
         </button>
-        <button class="dock-tab cube-btn" data-mode="in" title="Recall Deep Inside Portal (-Z)">
+        <button class="dock-tab cube-btn" data-mode="in" title="Recall Deep Inside Portal (-Z)" aria-label="Recall Mode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <polyline points="19 12 12 19 5 12"/>
