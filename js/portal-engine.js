@@ -1,5 +1,6 @@
 /**
- * AR-PORTAL — Core Portal Occlusion Engine, Hysteresis Tracker & Spatial Audio Synth
+ * AR-PORTAL — Core Portal Occlusion Engine, Direct Three.js Texture Manager,
+ * Simulated AR Stage & Spatial Audio Synthesizer
  */
 
 // 1. Procedural Web Audio API Portal Synthesizer
@@ -41,9 +42,7 @@ const PortalAudio = {
         osc.start(now + i * 0.04);
         osc.stop(now + 0.7 + i * 0.04);
       });
-    } catch (e) {
-      // Ignore audio autoplay restrictions prior to user gesture
-    }
+    } catch (e) {}
   },
 
   playThresholdCross(entering) {
@@ -56,22 +55,76 @@ const PortalAudio = {
       const gain = this.ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(entering ? 85 : 220, now);
-      osc.frequency.exponentialRampToValueAtTime(entering ? 240 : 80, now + 0.45);
+      osc.frequency.setValueAtTime(entering ? 95 : 230, now);
+      osc.frequency.exponentialRampToValueAtTime(entering ? 250 : 85, now + 0.38);
 
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.09, now + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+      gain.gain.linearRampToValueAtTime(0.07, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.52);
+      osc.stop(now + 0.45);
     } catch (e) {}
   }
 };
+window.PortalAudio = PortalAudio;
 
-// 2. Depth-Mask Occluder Material Component (writes to Z-buffer only, colorWrite: false)
+// 2. Direct Three.js High-Definition 4K Texture Cache (with 16x Anisotropy)
+const TextureCache = {
+  textures: {},
+  loader: new THREE.TextureLoader(),
+
+  preloadAll(renderer) {
+    const worlds = window.PORTAL_WORLDS || [];
+    const maxAnisotropy =
+      renderer && renderer.capabilities ? renderer.capabilities.getMaxAnisotropy() : 16;
+
+    worlds.forEach((w) => {
+      if (this.textures[w.id]) return;
+      const tex = this.loader.load(w.src, (loadedTex) => {
+        loadedTex.anisotropy = maxAnisotropy;
+        loadedTex.minFilter = THREE.LinearMipmapLinearFilter;
+        loadedTex.magFilter = THREE.LinearFilter;
+        loadedTex.generateMipmaps = true;
+        if ('colorSpace' in loadedTex && THREE.SRGBColorSpace) {
+          loadedTex.colorSpace = THREE.SRGBColorSpace;
+        }
+        loadedTex.needsUpdate = true;
+      });
+      tex.anisotropy = maxAnisotropy;
+      if ('colorSpace' in tex && THREE.SRGBColorSpace) {
+        tex.colorSpace = THREE.SRGBColorSpace;
+      }
+      this.textures[w.id] = tex;
+    });
+  },
+
+  applyToSphere(sphereEl, worldId, side) {
+    if (!sphereEl) return;
+    const tex = this.textures[worldId];
+    if (!tex) return;
+
+    const applyMesh = () => {
+      const mesh = sphereEl.getObject3D('mesh');
+      if (mesh) {
+        mesh.material = new THREE.MeshBasicMaterial({
+          map: tex,
+          side: side,
+          depthWrite: true,
+          depthTest: true
+        });
+        mesh.material.needsUpdate = true;
+      }
+    };
+
+    applyMesh();
+    setTimeout(applyMesh, 60);
+  }
+};
+
+// 3. Depth-Mask Occluder Material Component (writes to Z-buffer only, colorWrite: false)
 AFRAME.registerComponent('depth-mask-material', {
   init: function () {
     const applyMaterial = () => {
@@ -80,7 +133,8 @@ AFRAME.registerComponent('depth-mask-material', {
         mesh.material = new THREE.MeshBasicMaterial({
           colorWrite: false,
           depthWrite: true,
-          depthTest: true
+          depthTest: true,
+          side: THREE.DoubleSide
         });
         mesh.renderOrder = -1;
         mesh.material.needsUpdate = true;
@@ -96,7 +150,7 @@ AFRAME.registerComponent('depth-mask-material', {
   }
 });
 
-// 3. Dual-Perspective Portal Visibility Component with Hysteresis
+// 4. Dual-Perspective Portal Visibility Component with Hysteresis & Sim Mode Support
 AFRAME.registerComponent('portal-visibility', {
   init: function () {
     this.portalRoot = null;
@@ -112,11 +166,17 @@ AFRAME.registerComponent('portal-visibility', {
     if (marker) {
       marker.addEventListener('markerFound', () => {
         this.markerVisible = true;
-        updateTrackingBadge(true, this.lastState === true);
+        if (window.isSimulationMode) {
+          // Automatically dock back to real marker if user scans physical Hiro target
+          window.setSimulationMode(false);
+        }
+        updateTrackingBadge(true, this.lastState === true, false);
       });
       marker.addEventListener('markerLost', () => {
         this.markerVisible = false;
-        updateTrackingBadge(false, false);
+        if (!window.isSimulationMode) {
+          updateTrackingBadge(false, false, false);
+        }
       });
     }
   },
@@ -148,73 +208,95 @@ AFRAME.registerComponent('portal-visibility', {
     if (isInside !== this.lastState) {
       this.insideView.setAttribute('visible', isInside);
       this.outsideView.setAttribute('visible', !isInside);
-      if (this.lastState !== null && this.markerVisible) {
+      if (this.lastState !== null && (this.markerVisible || window.isSimulationMode)) {
         PortalAudio.playThresholdCross(isInside);
       }
       this.lastState = isInside;
-      if (this.markerVisible) {
-        updateTrackingBadge(true, isInside);
+      if (this.markerVisible || window.isSimulationMode) {
+        updateTrackingBadge(true, isInside, window.isSimulationMode);
       }
     }
   }
 });
 
-// 4. World Switching & 3D Spatial Modeling Controller
+// 5. World Switching, Cube Excursion Controls & Simulated AR Stage
 let currentWorldIndex = 0;
-let isSwitchingWorld = false;
+let currentCubeMode = 'loop'; // 'loop' | 'out' | 'in'
+window.isSimulationMode = false;
 
-function updateTrackingBadge(locked, isInside) {
+function updateTrackingBadge(locked, isInside, isSim) {
   const pill = document.getElementById('tracking-pill');
   const text = document.getElementById('tracking-text');
   if (!pill || !text) return;
 
   pill.classList.remove('locked', 'inside');
-  if (!locked) {
-    text.textContent = 'Scan Hiro Marker';
+  if (isSim) {
+    pill.classList.add('locked');
+    text.textContent = isInside ? 'Sim 360° Inside' : 'Sim Portal Active';
+  } else if (!locked) {
+    text.textContent = 'Scan Hiro or Tap Sim';
   } else if (isInside) {
     pill.classList.add('inside');
     text.textContent = 'Inside Portal 360°';
   } else {
     pill.classList.add('locked');
-    text.textContent = 'Portal Locked';
+    text.textContent = 'Hiro Locked';
   }
 }
 
+window.updateCubeTelemetry = function (inRealWorld, zVal) {
+  const badge = document.getElementById('cube-telemetry');
+  if (!badge) return;
+  const signStr = zVal >= 0 ? `+${zVal.toFixed(2)}m` : `${zVal.toFixed(2)}m`;
+  if (inRealWorld) {
+    badge.textContent = `CUBE: REAL WORLD (${signStr})`;
+    badge.classList.add('real-world');
+  } else {
+    badge.textContent = `CUBE: IN PORTAL (${signStr})`;
+    badge.classList.remove('real-world');
+  }
+};
+
 window.selectPortalWorld = function (index, playSound = true) {
-  if (isSwitchingWorld) return;
   const worlds = window.PORTAL_WORLDS || [];
   if (!worlds.length) return;
 
   currentWorldIndex = ((index % worlds.length) + worlds.length) % worlds.length;
   const world = worlds[currentWorldIndex];
-  isSwitchingWorld = true;
 
-  // Update 360° & 180° Nano Banana panoramic canvases
   const insideSphere = document.querySelector('#inside-sphere');
   const outsideSphere = document.querySelector('#outside-sphere');
 
+  // Directly apply Three.js 4K textures to guarantee instant switching on all mobile browsers
+  TextureCache.applyToSphere(insideSphere, world.id, THREE.DoubleSide);
+  TextureCache.applyToSphere(outsideSphere, world.id, THREE.BackSide);
+
   if (insideSphere) {
-    insideSphere.setAttribute('material', 'src', world.assetId);
-    insideSphere.setAttribute('rotation', world.sphereRotationInside || '0 90 0');
+    insideSphere.setAttribute('rotation', world.sphereRotationInside || '0 -90 0');
   }
   if (outsideSphere) {
-    outsideSphere.setAttribute('material', 'src', world.assetId);
-    outsideSphere.setAttribute('rotation', world.sphereRotationOutside || '0 -90 0');
+    outsideSphere.setAttribute('rotation', world.sphereRotationOutside || '0 0 0');
   }
 
-  // Update Portal Frame metallic/emissive accents to match the active world
+  // Update Portal Frame metallic/emissive accents
   document.querySelectorAll('.portal-beam').forEach((beam) => {
     beam.setAttribute(
       'material',
-      `color: ${world.frameColor}; emissive: ${world.frameEmissive}; emissiveIntensity: 0.55; metalness: 0.9; roughness: 0.15`
+      `color: ${world.frameColor}; emissive: ${world.frameEmissive}; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15`
     );
   });
   document.querySelectorAll('.portal-corner').forEach((corner) => {
     corner.setAttribute(
       'material',
-      `color: ${world.frameColor}; emissive: ${world.frameColor}; emissiveIntensity: 0.9; shader: flat; transparent: true; opacity: 0.55`
+      `color: ${world.frameColor}; emissive: ${world.frameColor}; emissiveIntensity: 0.95; shader: flat; transparent: true; opacity: 0.65`
     );
   });
+
+  // Update Excursion Cube accent color
+  const portalRoot = document.querySelector('#portal-root');
+  if (portalRoot && portalRoot.components && portalRoot.components['portal-excursion-cube']) {
+    portalRoot.components['portal-excursion-cube'].setWorldAccent(world.frameColor);
+  }
 
   // Rebuild 3D Spatial Modeling inside both outside & inside portal volumes
   const spatialMarkup = window.buildWorldSpatialVolume(world.id);
@@ -235,14 +317,53 @@ window.selectPortalWorld = function (index, playSound = true) {
   if (playSound) {
     PortalAudio.playWorldSwitch(world.audioFreq);
   }
-
-  setTimeout(() => {
-    isSwitchingWorld = false;
-  }, 240);
 };
 
 window.cyclePortalWorld = function () {
   window.selectPortalWorld(currentWorldIndex + 1, true);
+};
+
+window.setCubeExcursionMode = function (mode) {
+  currentCubeMode = mode;
+  const portalRoot = document.querySelector('#portal-root');
+  if (portalRoot) {
+    portalRoot.setAttribute('portal-excursion-cube', `mode: ${mode}`);
+  }
+  document.querySelectorAll('.cube-mode-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  PortalAudio.playThresholdCross(mode === 'out');
+};
+
+// Toggle Simulated AR Mode (allows experiencing the Portal & In-Out Cube without a physical Hiro marker)
+window.setSimulationMode = function (enable) {
+  window.isSimulationMode = enable;
+  const marker = document.querySelector('#hiro-marker');
+  const simAnchor = document.querySelector('#sim-portal-anchor');
+  const portalRoot = document.querySelector('#portal-root');
+  const simBtn = document.getElementById('btn-sim-mode');
+
+  if (!marker || !simAnchor || !portalRoot) return;
+
+  if (enable) {
+    simAnchor.object3D.add(portalRoot.object3D);
+    portalRoot.object3D.position.set(0, 0, 0);
+    portalRoot.object3D.rotation.set(0, 0, 0);
+    simAnchor.setAttribute('visible', 'true');
+    if (simBtn) simBtn.classList.add('active');
+    updateTrackingBadge(true, false, true);
+  } else {
+    marker.object3D.add(portalRoot.object3D);
+    portalRoot.object3D.position.set(0, 0, 0);
+    portalRoot.object3D.rotation.set(-Math.PI / 2, 0, 0);
+    simAnchor.setAttribute('visible', 'false');
+    if (simBtn) simBtn.classList.remove('active');
+    updateTrackingBadge(false, false, false);
+  }
+};
+
+window.toggleSimulationMode = function () {
+  window.setSimulationMode(!window.isSimulationMode);
 };
 
 window.toggleMarkerModal = function (forceState) {
@@ -252,25 +373,66 @@ window.toggleMarkerModal = function (forceState) {
   modal.classList.toggle('open', shouldOpen);
 };
 
-// Initialize Scene & HUD Events
+// Initialize Scene, Retina Sharpness & Interactive Touch/Drag Controls
 document.addEventListener('DOMContentLoaded', () => {
   const sceneEl = document.querySelector('a-scene');
+
+  const enforceRetinaResolution = () => {
+    if (sceneEl && sceneEl.renderer) {
+      const dpr = Math.min(window.devicePixelRatio || 2, 2.5);
+      sceneEl.renderer.setPixelRatio(dpr);
+    }
+  };
+
   if (sceneEl) {
     sceneEl.addEventListener('loaded', () => {
+      enforceRetinaResolution();
+      TextureCache.preloadAll(sceneEl.renderer);
+
       const loader = document.getElementById('loading-overlay');
       if (loader) {
         loader.style.opacity = '0';
         setTimeout(() => {
           loader.style.display = 'none';
-        }, 400);
+        }, 350);
       }
+
       sceneEl.setAttribute('portal-visibility', '');
       window.selectPortalWorld(0, false);
     });
   }
 
-  // Tap on 3D canvas (outside HUD) cycles through Nano Banana worlds
-  document.addEventListener('click', (e) => {
+  window.addEventListener('resize', enforceRetinaResolution);
+
+  // Explicit touch/pointer bindings for mobile reliability (bypasses AR.js canvas interception)
+  document.querySelectorAll('.world-tab').forEach((btn, idx) => {
+    const handler = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      window.selectPortalWorld(idx, true);
+    };
+    btn.addEventListener('touchend', handler, { passive: false });
+    btn.addEventListener('click', handler);
+  });
+
+  document.querySelectorAll('.cube-mode-btn').forEach((btn) => {
+    const handler = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      window.setCubeExcursionMode(btn.dataset.mode);
+    };
+    btn.addEventListener('touchend', handler, { passive: false });
+    btn.addEventListener('click', handler);
+  });
+
+  // Interactive drag-to-orbit in Simulated AR Mode so user can inspect the portal & in-out cube from any angle
+  let isDragging = false;
+  let lastX = 0;
+  let lastY = 0;
+  let rotY = 0;
+  let rotX = 0;
+
+  window.addEventListener('pointerdown', (e) => {
     if (
       e.target.closest('#hud-top') ||
       e.target.closest('#hud-bottom') ||
@@ -278,6 +440,26 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
       return;
     }
-    window.cyclePortalWorld();
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging || !window.isSimulationMode) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    rotY = THREE.MathUtils.clamp(rotY + dx * 0.25, -42, 42);
+    rotX = THREE.MathUtils.clamp(rotX + dy * 0.2, -28, 28);
+    const simAnchor = document.querySelector('#sim-portal-anchor');
+    if (simAnchor) {
+      simAnchor.setAttribute('rotation', `${rotX} ${rotY} 0`);
+    }
+  });
+
+  window.addEventListener('pointerup', () => {
+    isDragging = false;
   });
 });
