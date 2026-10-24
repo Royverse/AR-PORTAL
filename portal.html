@@ -93,9 +93,9 @@
     <p style="font-size: 13px; letter-spacing: 0.04em; color: #94a3b8;">LOADING 4K SPATIAL PORTAL &amp; 3D CUBE...</p>
   </div>
 
-  <!-- High-Definition WebAR Scene (Fast 60fps Mono CV Detector + High-Res 1280x960 Display) -->
+  <!-- High-Definition WebAR Scene (Fast 60fps Zero-Lag Mono CV Detector + High-Res 1280x960 Display) -->
   <a-scene embedded
-    arjs="sourceType: webcam; canvasWidth: 640; canvasHeight: 480; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono; patternRatio: 0.5; smoothCount: 14; smoothTolerance: 0.02; smoothThreshold: 4;"
+    arjs="sourceType: webcam; canvasWidth: 640; canvasHeight: 480; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono; patternRatio: 0.5; maxDetectionRate: 60;"
     vr-mode-ui="enabled: false"
     renderer="antialias: true; colorManagement: true; precision: high; logarithmicDepthBuffer: true">
 
@@ -106,16 +106,16 @@
       <img id="canvas-solarpunk-sanctuary" src="./assets/worlds/solarpunk-sanctuary.jpg" crossorigin="anonymous">
     </a-assets>
 
-    <!-- Low-Barrier Hiro Fiducial Detector (triggers sticky lock on first capture) -->
-    <a-marker preset="hiro" minConfidence="0.15" smooth="true" smoothCount="14" smoothTolerance="0.02" smoothThreshold="4" id="hiro-marker"></a-marker>
+    <!-- Zero-Lag Hiro Fiducial Detector (smooth="false" eliminates camera-space rubber-banding so Ray-Pinned + IMU Stabilizer pins the portal to the video point) -->
+    <a-marker preset="hiro" minConfidence="0.20" smooth="false" id="hiro-marker"></a-marker>
 
-    <!-- World-Space Stabilized & Sticky-Latched Portal Anchor (holds portal consistently even if marker momentarily leaves view) -->
+    <!-- World-Space Stabilized & Sticky-Latched Portal Anchor -->
     <a-entity id="stabilized-portal-anchor" visible="false">
       <!-- Portal Root with Three.js In-Out Excursion Cube attached -->
       <a-entity id="portal-root" position="0 0 0" rotation="0 0 0" portal-excursion-cube="mode: loop">
 
-        <!-- 1x1 Square Metallic & Emissive Portal Frame at z = 0 -->
-        <a-entity id="portal-frame">
+        <!-- 1x1 Square Metallic & Emissive Portal Frame at z = +0.015 (in front of depth mask to prevent Z-clipping) -->
+        <a-entity id="portal-frame" position="0 0 0.015">
           <a-cylinder class="portal-beam" position="-0.5 0 0" radius="0.026" height="1.02"
             material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15">
           </a-cylinder>
@@ -160,11 +160,11 @@
 
         <!-- PORTAL OUTSIDE VIEW (Active when looking into portal from outside: local z >= 0) -->
         <a-entity id="portal-outside" visible="true">
-          <!-- 4 Depth-Only Occluder Planes at z = 0.02 ("Invisibility Cloak" masking everything behind z <= 0.02 outside the 1x1 window, while allowing the 3D Cube to emerge unclipped when z > 0.02!) -->
-          <a-plane position="0 2.5 0.02" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
-          <a-plane position="0 -2.5 0.02" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
-          <a-plane position="-3.5 0 0.02" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
-          <a-plane position="3.5 0 0.02" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
+          <!-- 4 Depth-Only Occluder Planes at z = 0.00 ("Invisibility Cloak" masking everything behind z <= 0.00 outside the 1x1 window, while keeping the portal frame at z = +0.015 completely unclipped) -->
+          <a-plane position="0 2.5 0" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
+          <a-plane position="0 -2.5 0" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
+          <a-plane position="-3.5 0 0" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
+          <a-plane position="3.5 0 0" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
 
           <!-- Deep Ambient Backdrop Shell for Extreme Side Angles -->
           <a-sphere radius="24" position="0 0 -0.1" phi-start="180" phi-length="180" theta-start="0" theta-length="180"
