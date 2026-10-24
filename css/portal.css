@@ -39,7 +39,9 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #030712;
+  /* Must stay transparent: AR.js injects the camera <video> at a negative z-index,
+     and an opaque html/body background would paint over the real-world feed. */
+  background: transparent;
   font-family: var(--font-stack);
   color: var(--text-primary);
   font-size: 14px;
