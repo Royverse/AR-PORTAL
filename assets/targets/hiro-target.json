@@ -1,0 +1,23 @@
+{
+  "type": "PLANAR",
+  "properties": {
+    "top": 0,
+    "left": 0,
+    "width": 480,
+    "height": 640,
+    "isRotated": false,
+    "originalWidth": 480,
+    "originalHeight": 640
+  },
+  "imagePath": "./assets/targets/hiro-target_luminance.jpg",
+  "metadata": null,
+  "name": "hiro-target",
+  "resources": {
+    "originalImage": "hiro-target_luminance.jpg",
+    "croppedImage": "hiro-target_luminance.jpg",
+    "thumbnailImage": "hiro-target_luminance.jpg",
+    "luminanceImage": "hiro-target_luminance.jpg"
+  },
+  "created": 1792859897787,
+  "updated": 1792859897787
+}

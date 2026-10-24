@@ -4,15 +4,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR-PORTAL | Spatial WebAR Dimensional Worlds &amp; In-Out 3D Cube</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>AR-PORTAL | 8th Wall 6DoF Spatial WebAR Portal &amp; In-Out 3D Cube</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="./css/portal.css">
-  <!-- A-Frame 1.5.0 -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- AR.js for A-Frame -->
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <!-- 8th Wall Modified A-Frame 1.5.0 -->
+  <script crossorigin="anonymous" src="https://cdn.8thwall.com/web/aframe/8frame-1.5.0.min.js"></script>
+  <!-- 8th Wall XR Extras (xrextras-hider-material, xrextras-loading, xrextras-runtime-error) -->
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@8thwall/xrextras@1/dist/xrextras.js"></script>
+  <!-- 8th Wall Landing Page -->
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@8thwall/landing-page@1/dist/landing-page.js"></script>
+
+  <!-- AR-PORTAL Custom 8th Wall Components (registered before <a-scene> initializes) -->
+  <script src="./js/worlds.js"></script>
+  <script src="./js/portal-cube.js"></script>
+  <script src="./js/portal-engine.js"></script>
+
+  <!-- 8th Wall 6DoF SLAM & Image Target Engine Binary -->
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async data-preload-chunks="slam"></script>
 </head>
 
 <body>
@@ -27,12 +39,15 @@
     </div>
 
     <div class="status-cluster">
-      <div id="tracking-pill" class="tracking-pill">
+      <div id="tracking-pill" class="tracking-pill locked">
         <span class="tracking-dot"></span>
-        <span id="tracking-text">Scan Hiro or Tap Sim</span>
+        <span id="tracking-text">8th Wall 6DoF Locked</span>
       </div>
-      <button id="btn-sim-mode" class="hud-btn" onclick="window.toggleSimulationMode()" title="Simulate Portal &amp; In-Out Cube without physical marker">
-        <span>3D Sim Mode</span>
+      <button class="hud-btn" onclick="window.recenterPortal && window.recenterPortal(true)" title="Recenter &amp; Lock Portal in 6DoF Space">
+        <span>Recenter</span>
+      </button>
+      <button id="btn-step-inside" class="hud-btn" onclick="window.toggleStepInsidePortal()" title="Step Inside / Outside Portal 360°">
+        <span>Step Inside</span>
       </button>
       <button class="hud-btn" onclick="window.toggleMarkerModal(true)" title="Display Hiro AR Marker">
         <span>Hiro Target</span>
@@ -44,7 +59,7 @@
   <nav id="hud-bottom" aria-label="Portal &amp; Cube Controls">
     <!-- Three.js 3D Cube In-Out Excursion Bar -->
     <div class="cube-control-bar">
-      <span id="cube-telemetry" class="cube-telemetry-badge">CUBE: IN PORTAL (-1.80m)</span>
+      <span id="cube-telemetry" class="cube-telemetry-badge">CUBE: IN PORTAL (-7.2m)</span>
       <div class="cube-mode-group">
         <button class="cube-mode-btn active" data-mode="loop">In-Out Loop</button>
         <button class="cube-mode-btn" data-mode="out">Breach Out (+Z)</button>
@@ -54,7 +69,7 @@
 
     <!-- 4K Nano Banana World Switcher -->
     <div class="world-dock-header">
-      <span>4K NANO BANANA SPATIAL WORLDS</span>
+      <span>4K NANO BANANA SPATIAL WORLDS (8TH WALL 6DOF SLAM)</span>
       <span>Tap tab to switch environment</span>
     </div>
     <div class="world-tabs">
@@ -76,8 +91,8 @@
   <!-- Local Hiro Marker Modal -->
   <div id="marker-modal" onclick="if(event.target === this) window.toggleMarkerModal(false)">
     <div class="modal-card">
-      <h3>Hiro Fiducial Marker</h3>
-      <p>Display this target on a second screen or tap <strong>3D Sim Mode</strong> in the top bar to test without a marker.</p>
+      <h3>Hiro Fiducial Target</h3>
+      <p>Scan this target or tap <strong>Recenter</strong> in the top bar to lock the portal at any point in 6DoF space.</p>
       <div class="hiro-frame">
         <img src="./assets/hiro-marker.jpg" alt="Hiro AR Marker">
       </div>
@@ -90,14 +105,17 @@
   <!-- Loading Overlay -->
   <div id="loading-overlay">
     <div class="spinner"></div>
-    <p style="font-size: 13px; letter-spacing: 0.04em; color: #94a3b8;">LOADING 4K SPATIAL PORTAL &amp; 3D CUBE...</p>
+    <p style="font-size: 13px; letter-spacing: 0.04em; color: #94a3b8;">INITIALIZING 8TH WALL 6DOF SLAM PORTAL...</p>
   </div>
 
-  <!-- High-Definition WebAR Scene (Fast 60fps Zero-Lag Mono CV Detector + High-Res 1280x960 Display) -->
-  <a-scene embedded
-    arjs="sourceType: webcam; canvasWidth: 640; canvasHeight: 480; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono; patternRatio: 0.5; maxDetectionRate: 60;"
-    vr-mode-ui="enabled: false"
-    renderer="antialias: true; colorManagement: true; precision: high; logarithmicDepthBuffer: true">
+  <!-- Official 8th Wall Portal Scene Architecture (from 8thwall/web/examples/aframe/portal) -->
+  <a-scene
+    portal="width: 4; height: 6; depth: 1"
+    tap-to-place-portal
+    xrextras-loading
+    xrextras-runtime-error
+    renderer="colorManagement: true; antialias: true"
+    xrweb="allowedDevices: any; disableDefaultEnvironment: true;">
 
     <!-- Preload 4096x2048 Power-of-Two Nano Banana Panoramic Canvases -->
     <a-assets timeout="15000">
@@ -106,96 +124,78 @@
       <img id="canvas-solarpunk-sanctuary" src="./assets/worlds/solarpunk-sanctuary.jpg" crossorigin="anonymous">
     </a-assets>
 
-    <!-- Zero-Lag Hiro Fiducial Detector (smooth="false" eliminates camera-space rubber-banding so Ray-Pinned + IMU Stabilizer pins the portal to the video point) -->
-    <a-marker preset="hiro" minConfidence="0.20" smooth="false" id="hiro-marker"></a-marker>
+    <!-- 8th Wall 6DoF World-Space Camera -->
+    <a-camera id="camera" position="0 4 9"></a-camera>
 
-    <!-- World-Space Stabilized & Sticky-Latched Portal Anchor -->
-    <a-entity id="stabilized-portal-anchor" visible="false">
-      <!-- Portal Root with Three.js In-Out Excursion Cube attached -->
-      <a-entity id="portal-root" position="0 0 0" rotation="0 0 0" portal-excursion-cube="mode: loop">
+    <!-- Doorway (Fixed at World Origin 0,0,0 — 4x6 opening with 1-unit depth & glowing world-synced trim) -->
+    <a-entity id="portal-doorway">
+      <a-box class="portal-pillar" scale="1 6 1" position="-2.5 3 0"
+        material="color: #0f172a; metalness: 0.85; roughness: 0.2"></a-box>
+      <a-box class="portal-pillar" scale="1 6 1" position="2.5 3 0"
+        material="color: #0f172a; metalness: 0.85; roughness: 0.2"></a-box>
+      <a-box class="portal-pillar" scale="6 1 1" position="0 6.5 0"
+        material="color: #0f172a; metalness: 0.85; roughness: 0.2"></a-box>
+      <a-box class="portal-pillar" scale="6 0.3 1" position="0 -0.15 0"
+        material="color: #0f172a; metalness: 0.85; roughness: 0.2"></a-box>
 
-        <!-- 1x1 Square Metallic & Emissive Portal Frame at z = +0.015 (in front of depth mask to prevent Z-clipping) -->
-        <a-entity id="portal-frame" position="0 0 0.015">
-          <a-cylinder class="portal-beam" position="-0.5 0 0" radius="0.026" height="1.02"
-            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15">
-          </a-cylinder>
-          <a-cylinder class="portal-beam" position="0.5 0 0" radius="0.026" height="1.02"
-            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15">
-          </a-cylinder>
-          <a-cylinder class="portal-beam" position="0 0.5 0" radius="0.026" height="1.02" rotation="0 0 90"
-            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15">
-          </a-cylinder>
-          <a-cylinder class="portal-beam" position="0 -0.5 0" radius="0.026" height="1.02" rotation="0 0 90"
-            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15">
-          </a-cylinder>
+      <!-- Glowing Inner Doorway Trim Beams -->
+      <a-cylinder class="portal-beam" position="-2.0 3 0.48" radius="0.075" height="6.08"
+        material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.75; metalness: 0.9; roughness: 0.15">
+      </a-cylinder>
+      <a-cylinder class="portal-beam" position="2.0 3 0.48" radius="0.075" height="6.08"
+        material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.75; metalness: 0.9; roughness: 0.15">
+      </a-cylinder>
+      <a-cylinder class="portal-beam" position="0 6.0 0.48" radius="0.075" height="4.08" rotation="0 0 90"
+        material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.75; metalness: 0.9; roughness: 0.15">
+      </a-cylinder>
+      <a-cylinder class="portal-beam" position="0 0.02 0.48" radius="0.075" height="4.08" rotation="0 0 90"
+        material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.75; metalness: 0.9; roughness: 0.15">
+      </a-cylinder>
 
-          <!-- Corner Energy Nodes -->
-          <a-sphere class="portal-corner" position="-0.5 0.5 0" radius="0.038"
-            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat; transparent: true; opacity: 0.65">
-          </a-sphere>
-          <a-sphere class="portal-corner" position="0.5 0.5 0" radius="0.038"
-            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat; transparent: true; opacity: 0.65">
-          </a-sphere>
-          <a-sphere class="portal-corner" position="-0.5 -0.5 0" radius="0.038"
-            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat; transparent: true; opacity: 0.65">
-          </a-sphere>
-          <a-sphere class="portal-corner" position="0.5 -0.5 0" radius="0.038"
-            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat; transparent: true; opacity: 0.65">
-          </a-sphere>
-        </a-entity>
+      <!-- Corner Energy Nodes -->
+      <a-sphere class="portal-corner" position="-2.0 6.0 0.48" radius="0.13"
+        material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat"></a-sphere>
+      <a-sphere class="portal-corner" position="2.0 6.0 0.48" radius="0.13"
+        material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat"></a-sphere>
+      <a-sphere class="portal-corner" position="-2.0 0.02 0.48" radius="0.13"
+        material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat"></a-sphere>
+      <a-sphere class="portal-corner" position="2.0 0.02 0.48" radius="0.13"
+        material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.95; shader: flat"></a-sphere>
+    </a-entity>
 
-        <!-- PORTAL INSIDE VIEW (Active when camera steps through doorway: local z < 0) -->
-        <a-entity id="portal-inside" visible="false">
-          <!-- Depth-mask doorway cutout looking back out to real world -->
-          <a-plane position="0 0 0.001" width="1" height="1" rotation="0 180 0" depth-mask-material></a-plane>
+    <!-- Hider Walls: Exact 8th Wall 8-Box Watertight Enclosure around +Z Real-World Space -->
+    <a-entity id="hider-walls">
+      <a-box scale="6 100 1" position="0 57 0" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="94 100 1" position="-50 50 0" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="94 100 1" position="50 50 0" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="200 100 1" position="0 50 200" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="200 1 201" position="0 100 100" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="200 1 199" position="0 -0.5 100" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="1 100 200" position="-100 50 100" xrextras-hider-material hider-material-fallback></a-box>
+      <a-box scale="1 100 200" position="100 50 100" xrextras-hider-material hider-material-fallback></a-box>
+    </a-entity>
 
-          <!-- Full 360° 4K Equirectangular Sphere -->
-          <a-sphere id="inside-sphere" radius="18" position="0 0 -0.1" segments-height="48" segments-width="96"
-            rotation="0 -90 0" material="src: #canvas-cyber-nexus; side: double; shader: flat">
-          </a-sphere>
+    <!-- Portal Wall: Exact 8th Wall Inside-Looking-Out Doorway Cutout at z = +0.5 -->
+    <a-entity id="portal-wall">
+      <a-plane scale="4 6 1" rotation="180 0 0" position="0 3 0.5" xrextras-hider-material hider-material-fallback></a-plane>
+    </a-entity>
 
-          <!-- Dynamic 3D Spatial Volume (Injected by js/worlds.js) -->
-          <a-entity id="inside-volume"></a-entity>
-        </a-entity>
+    <!-- Lights -->
+    <a-entity light="type: directional; intensity: 0.95" position="1 4.3 2.5"></a-entity>
+    <a-entity light="type: ambient; intensity: 0.7"></a-entity>
 
-        <!-- PORTAL OUTSIDE VIEW (Active when looking into portal from outside: local z >= 0) -->
-        <a-entity id="portal-outside" visible="true">
-          <!-- 4 Depth-Only Occluder Planes at z = 0.00 ("Invisibility Cloak" masking everything behind z <= 0.00 outside the 1x1 window, while keeping the portal frame at z = +0.015 completely unclipped) -->
-          <a-plane position="0 2.5 0" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
-          <a-plane position="0 -2.5 0" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
-          <a-plane position="-3.5 0 0" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
-          <a-plane position="3.5 0 0" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
+    <!-- Portal Contents: Unified 8th Wall 3D World Volume (4K Sky + 3D Floor + Spatial Volume + In-Out Cube) -->
+    <a-entity id="portal-contents">
+      <a-sky id="portal-sky" src="#canvas-cyber-nexus" rotation="0 -90 0"></a-sky>
+      <a-box id="portal-floor" scale="5 1 14" position="0 -0.5 -6.5" color="#0b192c" shadow></a-box>
 
-          <!-- Deep Ambient Backdrop Shell for Extreme Side Angles -->
-          <a-sphere radius="24" position="0 0 -0.1" phi-start="180" phi-length="180" theta-start="0" theta-length="180"
-            material="color: #040814; side: back; shader: flat">
-          </a-sphere>
-
-          <!-- High-Density Focused Curved Panoramic Dome (concentrates 4096x2048 texels into the portal window for 3x sharper visual clarity) -->
-          <a-sphere id="outside-sphere" radius="11" position="0 0 -0.05" segments-height="48" segments-width="96"
-            phi-start="205" phi-length="130" theta-start="35" theta-length="110"
-            material="src: #canvas-cyber-nexus; side: back; shader: flat">
-          </a-sphere>
-
-          <!-- Dynamic 3D Spatial Volume (Injected by js/worlds.js) -->
-          <a-entity id="outside-volume"></a-entity>
-        </a-entity>
-
+      <!-- Scaled 4x4x4 Portal Root centered at doorway (0, 3, 0) with Three.js In-Out Excursion Cube -->
+      <a-entity id="portal-root" position="0 3 0" scale="4 4 4" portal-excursion-cube="mode: loop">
+        <a-entity id="portal-volume" position="0 -0.25 0"></a-entity>
       </a-entity>
     </a-entity>
 
-    <!-- Camera + Simulated AR Stage Anchor (used when 3D Sim Mode is toggled on) -->
-    <a-entity camera look-controls="enabled: false">
-      <a-entity id="sim-portal-anchor" position="0 -0.05 -2.15" rotation="0 0 0" visible="false"></a-entity>
-    </a-entity>
-
-    <a-entity light="type: ambient; intensity: 0.7"></a-entity>
-    <a-entity light="type: directional; intensity: 0.95" position="1 2 2"></a-entity>
   </a-scene>
-
-  <script src="./js/worlds.js"></script>
-  <script src="./js/portal-cube.js"></script>
-  <script src="./js/portal-engine.js"></script>
 </body>
 
 </html>

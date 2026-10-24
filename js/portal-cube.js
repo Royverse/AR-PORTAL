@@ -75,7 +75,7 @@ AFRAME.registerComponent('portal-excursion-cube', {
       this.satellites.push({ mesh: satMesh, angleOffset: (i * Math.PI) / 2 });
     }
 
-    // 5. Portal Threshold Shockwave Ripple Ring at z = 0.01 (triggers when cube crosses z = 0)
+    // 5. Portal Threshold Shockwave Ripple Ring at outer doorway face (z = +0.13 in 4x scale = +0.52 world Z)
     const rippleGeo = new THREE.RingGeometry(0.08, 0.13, 36);
     this.rippleMat = new THREE.MeshBasicMaterial({
       color: 0x00e5ff,
@@ -84,7 +84,7 @@ AFRAME.registerComponent('portal-excursion-cube', {
       opacity: 0.0
     });
     this.rippleMesh = new THREE.Mesh(rippleGeo, this.rippleMat);
-    this.rippleMesh.position.set(0, 0, 0.015);
+    this.rippleMesh.position.set(0, 0, 0.13);
     this.rootGroup.add(this.rippleMesh);
 
     // 6. Quantum Tether Beam connecting Cube back to the Portal Core (0, 0, -2.2)
@@ -160,8 +160,8 @@ AFRAME.registerComponent('portal-excursion-cube', {
     this.cubeGroup.position.z = THREE.MathUtils.lerp(this.cubeGroup.position.z, desiredZ, dt * 6);
     this.currentZ = this.cubeGroup.position.z;
 
-    // Detect exact moment the cube crosses the z = 0 portal plane!
-    const currentSign = this.currentZ >= 0.03 ? 1 : -1;
+    // Detect exact moment the cube crosses the outer doorway threshold plane (z = +0.125 in 4x scale = +0.5 world Z)!
+    const currentSign = this.currentZ >= 0.125 ? 1 : -1;
     if (currentSign !== this.lastSign) {
       this.lastSign = currentSign;
       this.triggerRipple(currentSign);
