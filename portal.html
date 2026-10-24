@@ -3,11 +3,12 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR-PORTAL | Spatial WebAR Dimensional Worlds &amp; In-Out 3D Cube</title>
-  <link rel="icon" href="/favicon.ico" sizes="48x48">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#030712">
+  <title>AR PORTAL | Spatial WebAR Portal &amp; 3D In-Out Cube</title>
+  <link rel="icon" href="./assets/icons/favicon.ico" sizes="48x48">
+  <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="./css/portal.css">
   <!-- A-Frame 1.5.0 -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -16,81 +17,147 @@
 </head>
 
 <body>
-  <!-- Top Glassmorphic HUD -->
+  <!-- Top Navigation & Status Bar -->
   <header id="hud-top">
-    <div class="brand-cluster">
-      <div class="portal-ring-icon"></div>
-      <div>
-        <h1 class="brand-title">AR-PORTAL</h1>
-        <p id="active-world-subtitle" class="brand-subtitle">Holographic Innovation Rotunda &amp; Neural Corridor</p>
-      </div>
+    <div class="brand-pill">
+      <div class="brand-icon"></div>
+      <span class="brand-name">AR PORTAL</span>
     </div>
 
-    <div class="status-cluster">
-      <div id="tracking-pill" class="tracking-pill">
-        <span class="tracking-dot"></span>
-        <span id="tracking-text">Scan Hiro or Tap Sim</span>
+    <div class="top-actions">
+      <div id="tracking-pill" class="status-pill">
+        <span class="status-dot"></span>
+        <span id="tracking-text">Searching</span>
       </div>
-      <button id="btn-sim-mode" class="hud-btn" onclick="window.toggleSimulationMode()" title="Simulate Portal &amp; In-Out Cube without physical marker">
-        <span>3D Sim Mode</span>
+
+      <button id="btn-sim-mode" class="action-btn" onclick="window.toggleSimulationMode()" title="Toggle 3D Simulation Mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        <span>Sim</span>
       </button>
-      <button class="hud-btn" onclick="window.toggleMarkerModal(true)" title="Display Hiro AR Marker">
-        <span>Hiro Target</span>
+
+      <button id="btn-marker-modal" class="action-btn" onclick="window.toggleMarkerModal(true)" title="View Hiro AR Target">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="6"/>
+          <circle cx="12" cy="12" r="2"/>
+        </svg>
+        <span>Target</span>
+      </button>
+
+      <button id="btn-help-modal" class="action-btn" onclick="window.toggleHelpModal(true)" title="Quick Help &amp; Spatial Controls">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
       </button>
     </div>
   </header>
 
-  <!-- Bottom Control Dock: 3D Cube Excursion + 4K World Selector -->
-  <nav id="hud-bottom" aria-label="Portal &amp; Cube Controls">
-    <!-- Three.js 3D Cube In-Out Excursion Bar -->
-    <div class="cube-control-bar">
-      <span id="cube-telemetry" class="cube-telemetry-badge">CUBE: IN PORTAL (-1.80m)</span>
-      <div class="cube-mode-group">
-        <button class="cube-mode-btn active" data-mode="loop">In-Out Loop</button>
-        <button class="cube-mode-btn" data-mode="out">Breach Out (+Z)</button>
-        <button class="cube-mode-btn" data-mode="in">Recall In (-Z)</button>
-      </div>
+  <!-- Bottom Floating Spatial Dock -->
+  <nav id="hud-bottom" aria-label="Portal Controls">
+    <div id="telemetry-chip" class="telemetry-chip">
+      <span class="telemetry-dot"></span>
+      <span id="cube-telemetry">Portal (-1.8m)</span>
     </div>
 
-    <!-- 4K Nano Banana World Switcher -->
-    <div class="world-dock-header">
-      <span>4K NANO BANANA SPATIAL WORLDS</span>
-      <span>Move around marker or drag to inspect 3D cube</span>
-    </div>
-    <div class="world-tabs">
-      <button class="world-tab active" data-world="0">
-        <span class="world-tab-index">01 &bull; NEXUS</span>
-        <span class="world-tab-name">Cyber Nexus</span>
-      </button>
-      <button class="world-tab" data-world="1">
-        <span class="world-tab-index">02 &bull; LUNAR</span>
-        <span class="world-tab-name">Lunar Outpost</span>
-      </button>
-      <button class="world-tab" data-world="2">
-        <span class="world-tab-index">03 &bull; EDEN</span>
-        <span class="world-tab-name">Solarpunk Sanctuary</span>
-      </button>
+    <div class="spatial-dock">
+      <!-- 4K Nano Banana Spatial Worlds -->
+      <div class="dock-segment world-segment">
+        <button class="dock-tab active" data-world="0" title="Cyber Nexus: Holographic Rotunda">
+          <span>Nexus</span>
+        </button>
+        <button class="dock-tab" data-world="1" title="Lunar Outpost: Surface Crater">
+          <span>Lunar</span>
+        </button>
+        <button class="dock-tab" data-world="2" title="Solarpunk Sanctuary: Bioluminescent Lake">
+          <span>Eden</span>
+        </button>
+      </div>
+
+      <div class="dock-divider" role="separator"></div>
+
+      <!-- 3D Excursion Cube Trajectory -->
+      <div class="dock-segment cube-segment">
+        <button class="dock-tab cube-btn active" data-mode="loop" title="In-Out Continuous Excursion Loop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <span>Loop</span>
+        </button>
+        <button class="dock-tab cube-btn" data-mode="out" title="Breach Out into Real-World 3D Space (+Z)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="12" y1="19" x2="12" y2="5"/>
+            <polyline points="5 12 12 5 19 12"/>
+          </svg>
+          <span>Breach</span>
+        </button>
+        <button class="dock-tab cube-btn" data-mode="in" title="Recall Deep Inside Portal (-Z)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <polyline points="19 12 12 19 5 12"/>
+          </svg>
+          <span>Recall</span>
+        </button>
+      </div>
     </div>
   </nav>
 
-  <!-- Local Hiro Marker Modal -->
-  <div id="marker-modal" onclick="if(event.target === this) window.toggleMarkerModal(false)">
-    <div class="modal-card">
-      <h3>Hiro Fiducial Marker</h3>
-      <p>Display this target on a second screen or tap <strong>3D Sim Mode</strong> in the top bar to test without a marker.</p>
-      <div class="hiro-frame">
-        <img src="./assets/hiro-marker.jpg" alt="Hiro AR Marker">
+  <!-- Hiro Target Modal -->
+  <div id="marker-modal" class="modal-backdrop" onclick="if(event.target === this) window.toggleMarkerModal(false)">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title">Hiro AR Target</h3>
+        <button class="modal-close-btn" onclick="window.toggleMarkerModal(false)" aria-label="Close modal">&times;</button>
       </div>
-      <div>
-        <button class="hud-btn" onclick="window.toggleMarkerModal(false)">Close Target</button>
+      <p class="modal-description">Point your camera at this target to anchor the 3D portal in space, or switch to <strong>Sim Mode</strong> for instant preview.</p>
+      <div class="hiro-preview">
+        <img src="./assets/hiro-marker.jpg" alt="Hiro AR Marker Target">
+      </div>
+      <div class="modal-actions">
+        <a href="./assets/hiro-marker.jpg" target="_blank" class="btn-secondary" download="hiro-marker.jpg">Download</a>
+        <button class="btn-primary" onclick="window.toggleMarkerModal(false)">Done</button>
       </div>
     </div>
   </div>
 
-  <!-- Loading Overlay -->
+  <!-- Help & Gestures Modal -->
+  <div id="help-modal" class="modal-backdrop" onclick="if(event.target === this) window.toggleHelpModal(false)">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title">Spatial Controls</h3>
+        <button class="modal-close-btn" onclick="window.toggleHelpModal(false)" aria-label="Close modal">&times;</button>
+      </div>
+      <ul class="guide-list">
+        <li class="guide-item">
+          <span class="guide-badge">1</span>
+          <span><strong>Move around marker:</strong> Move your phone around the target to view the sides and gold back-plate of the stationary 3D cube.</span>
+        </li>
+        <li class="guide-item">
+          <span class="guide-badge">2</span>
+          <span><strong>Drag on screen:</strong> Swipe with one finger to orbit 360° around the portal in both AR and Sim mode. Double-tap to reset view.</span>
+        </li>
+        <li class="guide-item">
+          <span class="guide-badge">3</span>
+          <span><strong>Step inside:</strong> Walk forward into the portal doorway to immerse yourself inside the 360° panoramic world.</span>
+        </li>
+      </ul>
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="window.toggleHelpModal(false)">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimal Loading Screen -->
   <div id="loading-overlay">
-    <div class="spinner"></div>
-    <p style="font-size: 13px; letter-spacing: 0.04em; color: #94a3b8;">LOADING 4K SPATIAL PORTAL &amp; 3D CUBE...</p>
+    <div class="minimal-spinner"></div>
+    <span class="loading-text">Loading Spatial Portal</span>
   </div>
 
   <!-- High-Definition WebAR Scene (Fast 60fps Zero-Lag Mono CV Detector + High-Res 1280x960 Display) -->

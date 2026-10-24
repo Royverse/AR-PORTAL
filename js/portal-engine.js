@@ -594,34 +594,35 @@ function updateTrackingBadge(state, isInside, isSim) {
   const text = document.getElementById('tracking-text');
   if (!pill || !text) return;
 
-  pill.classList.remove('locked', 'inside');
+  pill.classList.remove('locked', 'inside', 'tracking', 'sim');
   if (isSim || state === 'sim') {
-    pill.classList.add('locked');
-    text.textContent = isInside ? 'Sim 360° Inside' : 'Sim Portal Active';
+    pill.classList.add('sim');
+    text.textContent = isInside ? 'Sim 360°' : 'Sim Active';
   } else if (state === 'searching') {
-    text.textContent = 'Scan Hiro or Tap Sim';
+    text.textContent = 'Searching';
   } else if (isInside) {
     pill.classList.add('inside');
-    text.textContent = 'Inside Portal 360°';
+    text.textContent = 'Inside 360°';
   } else if (state === 'held') {
-    pill.classList.add('locked');
-    text.textContent = 'Portal Held (Locked)';
+    pill.classList.add('tracking');
+    text.textContent = 'Locked (Held)';
   } else {
-    pill.classList.add('locked');
-    text.textContent = 'Hiro Tracking';
+    pill.classList.add('tracking');
+    text.textContent = 'Locked';
   }
 }
 
 window.updateCubeTelemetry = function (inRealWorld, zVal) {
   const badge = document.getElementById('cube-telemetry');
+  const chip = document.getElementById('telemetry-chip');
   if (!badge) return;
   const signStr = zVal >= 0 ? `+${zVal.toFixed(2)}m` : `${zVal.toFixed(2)}m`;
   if (inRealWorld) {
-    badge.textContent = `CUBE: REAL WORLD (${signStr})`;
-    badge.classList.add('real-world');
+    badge.textContent = `Real Space (${signStr})`;
+    if (chip) chip.classList.add('real-world');
   } else {
-    badge.textContent = `CUBE: IN PORTAL (${signStr})`;
-    badge.classList.remove('real-world');
+    badge.textContent = `Portal (${signStr})`;
+    if (chip) chip.classList.remove('real-world');
   }
 };
 
@@ -678,8 +679,9 @@ window.selectPortalWorld = function (index, playSound = true) {
   const subtitleEl = document.getElementById('active-world-subtitle');
   if (subtitleEl) subtitleEl.textContent = world.subtitle;
 
-  document.querySelectorAll('.world-tab').forEach((btn, idx) => {
-    btn.classList.toggle('active', idx === currentWorldIndex);
+  document.querySelectorAll('.world-tab, .dock-tab[data-world]').forEach((btn) => {
+    const wIdx = parseInt(btn.dataset.world, 10);
+    btn.classList.toggle('active', wIdx === currentWorldIndex);
   });
 
   if (playSound) {
@@ -697,7 +699,7 @@ window.setCubeExcursionMode = function (mode) {
   if (portalRoot) {
     portalRoot.setAttribute('portal-excursion-cube', `mode: ${mode}`);
   }
-  document.querySelectorAll('.cube-mode-btn').forEach((btn) => {
+  document.querySelectorAll('.cube-mode-btn, .cube-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
   PortalAudio.playThresholdCross(mode === 'out');
@@ -744,6 +746,14 @@ window.toggleMarkerModal = function (forceState) {
   modal.classList.toggle('open', shouldOpen);
 };
 
+window.toggleHelpModal = function (forceState) {
+  const modal = document.getElementById('help-modal');
+  if (!modal) return;
+  const shouldOpen =
+    typeof forceState === 'boolean' ? forceState : !modal.classList.contains('open');
+  modal.classList.toggle('open', shouldOpen);
+};
+
 // Initialize Scene, Retina Sharpness & Interactive Touch/Drag 360° Orbit Controls
 document.addEventListener('DOMContentLoaded', () => {
   const sceneEl = document.querySelector('a-scene');
@@ -776,17 +786,18 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', enforceRetinaResolution);
 
   // Explicit touch/pointer bindings for mobile reliability (bypasses AR.js canvas interception)
-  document.querySelectorAll('.world-tab').forEach((btn, idx) => {
+  document.querySelectorAll('.world-tab, .dock-tab[data-world]').forEach((btn) => {
     const handler = (e) => {
       e.stopPropagation();
       e.preventDefault();
-      window.selectPortalWorld(idx, true);
+      const idx = parseInt(btn.dataset.world, 10);
+      window.selectPortalWorld(isNaN(idx) ? 0 : idx, true);
     };
     btn.addEventListener('touchend', handler, { passive: false });
     btn.addEventListener('click', handler);
   });
 
-  document.querySelectorAll('.cube-mode-btn').forEach((btn) => {
+  document.querySelectorAll('.cube-mode-btn, .dock-tab[data-mode]').forEach((btn) => {
     const handler = (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -809,7 +820,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (
       e.target.closest('#hud-top') ||
       e.target.closest('#hud-bottom') ||
-      e.target.closest('#marker-modal')
+      e.target.closest('.modal-backdrop') ||
+      e.target.closest('#marker-modal') ||
+      e.target.closest('#help-modal')
     ) {
       return;
     }

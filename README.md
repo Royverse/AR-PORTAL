@@ -146,15 +146,21 @@ graph TD
 AR-PORTAL/
 ├── index.html                        # Primary WebAR application entry point
 ├── portal.html                       # Mirrored entry point for direct /portal.html links
-├── netlify.toml                      # Netlify production publishing configuration
+├── netlify.toml                      # Netlify production publishing & redirect configuration
+├── README.md                         # Architecture, visual guide, and usage documentation
 ├── css/
-│   └── portal.css                    # HUD header, Cube Excursion bar, World Dock & Marker modal
+│   └── portal.css                    # Spatial glassmorphic HUD, floating dock & modal sheets
 ├── js/
 │   ├── worlds.js                     # Declarative 4K world configs & 3D spatial volume builders
-│   ├── portal-cube.js                # Three.js portal-excursion-cube component (in-out real-world breach)
-│   └── portal-engine.js              # Depth-mask shader, 16x anisotropic texture cache, Sim Mode & Web Audio
+│   ├── portal-cube.js                # Three.js 6-face distinct 3D excursion cube component
+│   └── portal-engine.js              # 8th-Wall-style 3D hider enclosure, 1-Euro stabilizer & audio synth
 └── assets/
-    ├── hiro-marker.jpg               # Local copy of the official AR.js Hiro fiducial marker
+    ├── hiro-marker.jpg               # Official high-contrast AR.js Hiro fiducial marker
+    ├── icons/                        # Web app icons, SVG vector badges & favicons
+    │   ├── apple-touch-icon.png
+    │   ├── favicon.ico
+    │   ├── favicon.svg
+    │   └── icon-512.png
     └── worlds/
         ├── cyber-nexus.jpg           # 4096x2048 4K Cyber Nexus panoramic canvas
         ├── lunar-observatory.jpg     # 4096x2048 4K Lunar Outpost panoramic canvas

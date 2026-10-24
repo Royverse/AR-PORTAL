@@ -2,6 +2,26 @@
   publish = "."
 
 [[redirects]]
+  from = "/favicon.ico"
+  to = "/assets/icons/favicon.ico"
+  status = 200
+
+[[redirects]]
+  from = "/favicon.svg"
+  to = "/assets/icons/favicon.svg"
+  status = 200
+
+[[redirects]]
+  from = "/apple-touch-icon.png"
+  to = "/assets/icons/apple-touch-icon.png"
+  status = 200
+
+[[redirects]]
+  from = "/portal.html"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
-  to = "/portal.html"
+  to = "/index.html"
   status = 200
