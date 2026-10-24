@@ -1,0 +1,307 @@
+:root {
+  --portal-accent: #00e5ff;
+  --portal-accent-glow: rgba(0, 229, 255, 0.35);
+  --glass-bg: rgba(10, 14, 24, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text-primary);
+  background-color: #050811;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Top HUD Bar */
+#hud-top {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  z-index: 20;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.portal-ring-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--portal-accent);
+  box-shadow: 0 0 12px var(--portal-accent-glow), inset 0 0 8px var(--portal-accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.portal-ring-icon::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--portal-accent);
+}
+
+.brand-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Tracking & Depth Pill */
+.status-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tracking-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.25s ease;
+}
+
+.tracking-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.tracking-pill.locked .tracking-dot {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.tracking-pill.inside .tracking-dot {
+  background: #00e5ff;
+  box-shadow: 0 0 10px #00e5ff;
+}
+
+.hud-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  padding: 6px 11px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.hud-btn:hover,
+.hud-btn.active {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: var(--portal-accent);
+  color: #ffffff;
+}
+
+/* Bottom World Selector Dock */
+#hud-bottom {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(94vw, 540px);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 10px;
+  z-index: 20;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+.world-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 8px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.world-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.world-tab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.world-tab:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.world-tab.active {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--portal-accent);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.2);
+}
+
+.world-tab-index {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--portal-accent);
+  letter-spacing: 0.06em;
+  display: block;
+}
+
+.world-tab-name {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Marker & QR Modal */
+#marker-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 17, 0.85);
+  backdrop-filter: blur(12px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+#marker-modal.open {
+  display: flex;
+}
+
+.modal-card {
+  background: #0f172a;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.modal-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+}
+
+.modal-card p {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hiro-frame {
+  background: #ffffff;
+  padding: 18px;
+  border-radius: 12px;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.hiro-frame img {
+  width: 220px;
+  height: 220px;
+  display: block;
+}
+
+/* Loading & Error Overlays */
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, #0f172a 0%, #050811 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  flex-direction: column;
+  transition: opacity 0.4s ease;
+}
+
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top: 3px solid var(--portal-accent);
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  animation: spin 0.9s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+  .brand-subtitle {
+    display: none;
+  }
+  #hud-top {
+    padding: 8px 10px;
+  }
+}

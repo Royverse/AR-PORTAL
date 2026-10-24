@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AR-PORTAL | Spatial WebAR Dimensional Worlds</title>
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="./css/portal.css">
+  <!-- A-Frame 1.5.0 -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- AR.js for A-Frame -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+</head>
+
+<body>
+  <!-- Top Glassmorphic HUD -->
+  <header id="hud-top">
+    <div class="brand-cluster">
+      <div class="portal-ring-icon"></div>
+      <div>
+        <h1 class="brand-title">AR-PORTAL</h1>
+        <p id="active-world-subtitle" class="brand-subtitle">Holographic Innovation Rotunda &amp; Neural Corridor</p>
+      </div>
+    </div>
+
+    <div class="status-cluster">
+      <div id="tracking-pill" class="tracking-pill">
+        <span class="tracking-dot"></span>
+        <span id="tracking-text">Scan Hiro Marker</span>
+      </div>
+      <button class="hud-btn" onclick="window.toggleMarkerModal(true)" title="Display Hiro AR Marker">
+        <span>Hiro Target</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Bottom World Selector Dock -->
+  <nav id="hud-bottom" aria-label="Portal World Selector">
+    <div class="world-dock-header">
+      <span>NANO BANANA 360&deg; SPATIAL CANVASES</span>
+      <span>Tap screen or select world</span>
+    </div>
+    <div class="world-tabs">
+      <button class="world-tab active" onclick="window.selectPortalWorld(0, true)">
+        <span class="world-tab-index">01 &bull; NEXUS</span>
+        <span class="world-tab-name">Cyber Nexus</span>
+      </button>
+      <button class="world-tab" onclick="window.selectPortalWorld(1, true)">
+        <span class="world-tab-index">02 &bull; LUNAR</span>
+        <span class="world-tab-name">Lunar Outpost</span>
+      </button>
+      <button class="world-tab" onclick="window.selectPortalWorld(2, true)">
+        <span class="world-tab-index">03 &bull; EDEN</span>
+        <span class="world-tab-name">Solarpunk Sanctuary</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Local Hiro Marker Modal -->
+  <div id="marker-modal" onclick="if(event.target === this) window.toggleMarkerModal(false)">
+    <div class="modal-card">
+      <h3>Hiro Fiducial Marker</h3>
+      <p>Display this target on a second screen or print it out, then point your phone camera at it.</p>
+      <div class="hiro-frame">
+        <img src="./assets/hiro-marker.jpg" alt="Hiro AR Marker">
+      </div>
+      <div>
+        <button class="hud-btn" onclick="window.toggleMarkerModal(false)">Close Target</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <p style="font-size: 13px; letter-spacing: 0.04em; color: #94a3b8;">INITIALIZING SPATIAL AR PORTAL...</p>
+  </div>
+
+  <!-- WebAR Scene -->
+  <a-scene embedded
+    arjs="sourceType: webcam; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono_and_matrix; matrixCodeType: 3x3; smoothCount: 10; smoothTolerance: 0.01; smoothThreshold: 2;"
+    vr-mode-ui="enabled: false"
+    renderer="antialias: true; colorManagement: true">
+
+    <!-- Preload Nano Banana Full-Bleed 360° Panoramic Canvases -->
+    <a-assets timeout="15000">
+      <img id="canvas-cyber-nexus" src="./assets/worlds/cyber-nexus.jpg" crossorigin="anonymous">
+      <img id="canvas-lunar-observatory" src="./assets/worlds/lunar-observatory.jpg" crossorigin="anonymous">
+      <img id="canvas-solarpunk-sanctuary" src="./assets/worlds/solarpunk-sanctuary.jpg" crossorigin="anonymous">
+    </a-assets>
+
+    <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="2" id="hiro-marker">
+      <!-- Portal Root aligned flat on marker surface -->
+      <a-entity id="portal-root" position="0 0 0" rotation="-90 0 0">
+
+        <!-- 1x1 Square Metallic & Emissive Portal Frame -->
+        <a-entity id="portal-frame">
+          <a-cylinder class="portal-beam" position="-0.5 0 0" radius="0.026" height="1.02"
+            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.55; metalness: 0.9; roughness: 0.15">
+          </a-cylinder>
+          <a-cylinder class="portal-beam" position="0.5 0 0" radius="0.026" height="1.02"
+            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.55; metalness: 0.9; roughness: 0.15">
+          </a-cylinder>
+          <a-cylinder class="portal-beam" position="0 0.5 0" radius="0.026" height="1.02" rotation="0 0 90"
+            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.55; metalness: 0.9; roughness: 0.15">
+          </a-cylinder>
+          <a-cylinder class="portal-beam" position="0 -0.5 0" radius="0.026" height="1.02" rotation="0 0 90"
+            material="color: #00e5ff; emissive: #0088cc; emissiveIntensity: 0.55; metalness: 0.9; roughness: 0.15">
+          </a-cylinder>
+
+          <!-- Corner Energy Nodes -->
+          <a-sphere class="portal-corner" position="-0.5 0.5 0" radius="0.038"
+            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.9; shader: flat; transparent: true; opacity: 0.55">
+          </a-sphere>
+          <a-sphere class="portal-corner" position="0.5 0.5 0" radius="0.038"
+            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.9; shader: flat; transparent: true; opacity: 0.55">
+          </a-sphere>
+          <a-sphere class="portal-corner" position="-0.5 -0.5 0" radius="0.038"
+            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.9; shader: flat; transparent: true; opacity: 0.55">
+          </a-sphere>
+          <a-sphere class="portal-corner" position="0.5 -0.5 0" radius="0.038"
+            material="color: #00e5ff; emissive: #00e5ff; emissiveIntensity: 0.9; shader: flat; transparent: true; opacity: 0.55">
+          </a-sphere>
+        </a-entity>
+
+        <!-- PORTAL INSIDE VIEW (Active when camera steps through doorway: local z < 0) -->
+        <a-entity id="portal-inside" visible="false">
+          <!-- Depth-mask doorway cutout looking back out to real world -->
+          <a-plane position="0 0 0.001" width="1" height="1" rotation="0 180 0" depth-mask-material></a-plane>
+
+          <!-- Full 360° Equirectangular Sphere -->
+          <a-sphere id="inside-sphere" radius="26" position="0 0 -0.1" segments-height="36" segments-width="64"
+            rotation="0 -90 0" material="src: #canvas-cyber-nexus; side: double; shader: flat">
+          </a-sphere>
+
+          <!-- Dynamic 3D Spatial Volume (Injected by js/worlds.js) -->
+          <a-entity id="inside-volume"></a-entity>
+        </a-entity>
+
+        <!-- PORTAL OUTSIDE VIEW (Active when looking into portal from outside: local z >= 0) -->
+        <a-entity id="portal-outside" visible="true">
+          <!-- 4 Depth-Only Occluder Planes ("Invisibility Cloak" masking everything outside the 1x1 window) -->
+          <a-plane position="0 2.5 0.04" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
+          <a-plane position="0 -2.5 0.04" width="12" height="4" rotation="0 0 0" depth-mask-material></a-plane>
+          <a-plane position="-3.5 0 0.04" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
+          <a-plane position="3.5 0 0.04" width="6" height="12" rotation="0 0 0" depth-mask-material></a-plane>
+
+          <!-- True -Z 180° Hemisphere (phi-start=180, phi-length=180 keeps all vertices strictly behind z <= 0 and centers UV u=0.5 at -Z) -->
+          <a-sphere id="outside-sphere" radius="26" position="0 0 -0.05" segments-height="36" segments-width="64"
+            phi-start="180" phi-length="180" theta-start="0" theta-length="180"
+            material="src: #canvas-cyber-nexus; side: back; shader: flat">
+          </a-sphere>
+
+          <!-- Dynamic 3D Spatial Volume (Injected by js/worlds.js) -->
+          <a-entity id="outside-volume"></a-entity>
+        </a-entity>
+
+      </a-entity>
+    </a-marker>
+
+    <a-entity camera look-controls="enabled: false"></a-entity>
+    <a-entity light="type: ambient; intensity: 0.65"></a-entity>
+    <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
+  </a-scene>
+
+  <script src="./js/worlds.js"></script>
+  <script src="./js/portal-engine.js"></script>
+</body>
+
+</html>
