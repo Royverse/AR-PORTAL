@@ -93,9 +93,9 @@
     <p style="font-size: 13px; letter-spacing: 0.04em; color: #94a3b8;">LOADING 4K SPATIAL PORTAL &amp; 3D CUBE...</p>
   </div>
 
-  <!-- High-Definition WebAR Scene -->
+  <!-- High-Definition WebAR Scene (Fast 60fps Mono CV Detector + High-Res 1280x960 Display) -->
   <a-scene embedded
-    arjs="sourceType: webcam; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono_and_matrix; matrixCodeType: 3x3; smoothCount: 10; smoothTolerance: 0.01; smoothThreshold: 2;"
+    arjs="sourceType: webcam; canvasWidth: 640; canvasHeight: 480; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; facingMode: environment; debugUIEnabled: false; trackingMethod: best; detectionMode: mono; patternRatio: 0.5; smoothCount: 14; smoothTolerance: 0.02; smoothThreshold: 4;"
     vr-mode-ui="enabled: false"
     renderer="antialias: true; colorManagement: true; precision: high; logarithmicDepthBuffer: true">
 
@@ -106,9 +106,13 @@
       <img id="canvas-solarpunk-sanctuary" src="./assets/worlds/solarpunk-sanctuary.jpg" crossorigin="anonymous">
     </a-assets>
 
-    <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="2" id="hiro-marker">
-      <!-- Portal Root aligned flat on marker surface, with Three.js In-Out Excursion Cube attached -->
-      <a-entity id="portal-root" position="0 0 0" rotation="-90 0 0" portal-excursion-cube="mode: loop">
+    <!-- Low-Barrier Hiro Fiducial Detector (triggers sticky lock on first capture) -->
+    <a-marker preset="hiro" minConfidence="0.15" smooth="true" smoothCount="14" smoothTolerance="0.02" smoothThreshold="4" id="hiro-marker"></a-marker>
+
+    <!-- World-Space Stabilized & Sticky-Latched Portal Anchor (holds portal consistently even if marker momentarily leaves view) -->
+    <a-entity id="stabilized-portal-anchor" visible="false">
+      <!-- Portal Root with Three.js In-Out Excursion Cube attached -->
+      <a-entity id="portal-root" position="0 0 0" rotation="0 0 0" portal-excursion-cube="mode: loop">
 
         <!-- 1x1 Square Metallic & Emissive Portal Frame at z = 0 -->
         <a-entity id="portal-frame">
@@ -178,7 +182,7 @@
         </a-entity>
 
       </a-entity>
-    </a-marker>
+    </a-entity>
 
     <!-- Camera + Simulated AR Stage Anchor (used when 3D Sim Mode is toggled on) -->
     <a-entity camera look-controls="enabled: false">

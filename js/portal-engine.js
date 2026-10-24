@@ -1,6 +1,6 @@
 /**
  * AR-PORTAL — Core Portal Occlusion Engine, Direct Three.js Texture Manager,
- * Simulated AR Stage & Spatial Audio Synthesizer
+ * Low-Barrier Multi-Threshold Hiro Detector, Sticky Pose-Hold Latch & Spatial Audio Synth
  */
 
 // 1. Procedural Web Audio API Portal Synthesizer
@@ -150,46 +150,127 @@ AFRAME.registerComponent('depth-mask-material', {
   }
 });
 
-// 4. Dual-Perspective Portal Visibility Component with Hysteresis & Sim Mode Support
+// 4. Low-Barrier Hiro Acquisition + Sticky Pose-Hold Stabilizer + Dual-Perspective Hysteresis
 AFRAME.registerComponent('portal-visibility', {
   init: function () {
-    this.portalRoot = null;
-    this.insideView = null;
-    this.outsideView = null;
+    this.portalRoot = document.querySelector('#portal-root');
+    this.insideView = document.querySelector('#portal-inside');
+    this.outsideView = document.querySelector('#portal-outside');
+    this.markerEl = document.querySelector('#hiro-marker');
+    this.stabilizedAnchor = document.querySelector('#stabilized-portal-anchor');
+
     this.lastState = null;
     this.hysteresisThreshold = 0.04;
     this.frameCount = 0;
-    this.updateFrequency = 2;
-    this.markerVisible = false;
 
-    const marker = document.querySelector('#hiro-marker');
-    if (marker) {
-      marker.addEventListener('markerFound', () => {
-        this.markerVisible = true;
+    // Sticky Pose-Hold Latch state:
+    // Once the Hiro marker is caught for even 1 frame, `hasLatched` locks true so the portal
+    // stays rock-solid and visible even when the marker leaves the camera's field of view!
+    this.markerCurrentlyVisible = false;
+    this.hasLatched = false;
+    this.justAcquired = false;
+
+    this.targetPos = new THREE.Vector3();
+    this.targetQuat = new THREE.Quaternion();
+    this.targetScale = new THREE.Vector3(1, 1, 1);
+    this.rotOffsetQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+
+    // Multi-threshold sweep array to catch backlit screens, dim rooms, and angled monitors
+    this.thresholds = [65, 90, 110, 130, 155, 180];
+    this.threshIdx = 0;
+
+    if (this.markerEl) {
+      this.markerEl.addEventListener('markerFound', () => {
+        this.markerCurrentlyVisible = true;
+        if (!this.hasLatched) {
+          this.hasLatched = true;
+          this.justAcquired = true;
+          PortalAudio.playWorldSwitch(130.8);
+        }
         if (window.isSimulationMode) {
-          // Automatically dock back to real marker if user scans physical Hiro target
           window.setSimulationMode(false);
         }
-        updateTrackingBadge(true, this.lastState === true, false);
+        if (this.stabilizedAnchor) {
+          this.stabilizedAnchor.setAttribute('visible', 'true');
+        }
+        updateTrackingBadge('tracking', this.lastState === true, false);
       });
-      marker.addEventListener('markerLost', () => {
-        this.markerVisible = false;
-        if (!window.isSimulationMode) {
-          updateTrackingBadge(false, false, false);
+
+      this.markerEl.addEventListener('markerLost', () => {
+        this.markerCurrentlyVisible = false;
+        // DO NOT hide the portal! Keep it latched and held in space for rock-solid consistency!
+        if (this.hasLatched && !window.isSimulationMode) {
+          updateTrackingBadge('held', this.lastState === true, false);
+        } else if (!window.isSimulationMode) {
+          updateTrackingBadge('searching', false, false);
         }
       });
     }
   },
 
+  lowerARToolKitBarrier: function () {
+    // Hook into AR.js / ARToolKit internals to lower pattern confidence barrier and sweep thresholds
+    try {
+      const arSystem = this.el.sceneEl && this.el.sceneEl.systems && this.el.sceneEl.systems.arjs;
+      const ctx = arSystem && arSystem._arToolkitContext;
+      if (ctx && ctx.arController) {
+        // Lower pattern confidence cutoff so partial/angled Hiro views trigger immediately
+        if (this.markerEl && this.markerEl.components && this.markerEl.components.arjsmarker) {
+          const markerCtrl = this.markerEl.components.arjsmarker._arMarkerControls;
+          if (markerCtrl && markerCtrl.parameters) {
+            markerCtrl.parameters.minConfidence = 0.15;
+          }
+        }
+        // When marker is not currently visible, sweep binarization threshold across frames
+        // so glowing monitors and varied lighting conditions are caught effortlessly
+        if (!this.markerCurrentlyVisible && this.frameCount % 3 === 0) {
+          this.threshIdx = (this.threshIdx + 1) % this.thresholds.length;
+          ctx.arController.setThreshold(this.thresholds[this.threshIdx]);
+        }
+      }
+    } catch (e) {}
+  },
+
   tick: function () {
     this.frameCount++;
-    if (this.frameCount % this.updateFrequency !== 0) return;
+    this.lowerARToolKitBarrier();
 
-    const camera = this.el.sceneEl && this.el.sceneEl.camera;
     if (!this.portalRoot) this.portalRoot = document.querySelector('#portal-root');
     if (!this.insideView) this.insideView = document.querySelector('#portal-inside');
     if (!this.outsideView) this.outsideView = document.querySelector('#portal-outside');
+    if (!this.stabilizedAnchor) this.stabilizedAnchor = document.querySelector('#stabilized-portal-anchor');
 
+    // 1. Update Stabilized World-Space Pose when Hiro Marker is actively seen
+    if (this.markerCurrentlyVisible && this.markerEl && this.stabilizedAnchor && !window.isSimulationMode) {
+      const mObj = this.markerEl.object3D;
+      mObj.getWorldPosition(this.targetPos);
+      mObj.getWorldQuaternion(this.targetQuat);
+      mObj.getWorldScale(this.targetScale);
+
+      // Apply the -90 deg X rotation so the portal stands upright on the marker plane
+      this.targetQuat.multiply(this.rotOffsetQuat);
+
+      const sObj = this.stabilizedAnchor.object3D;
+      sObj.visible = true;
+
+      if (this.justAcquired) {
+        // Snap immediately on first capture frame
+        sObj.position.copy(this.targetPos);
+        sObj.quaternion.copy(this.targetQuat);
+        sObj.scale.copy(this.targetScale);
+        this.justAcquired = false;
+      } else {
+        // Exponential smoothing (lerp/slerp) for silky-smooth, jitter-free consistency
+        sObj.position.lerp(this.targetPos, 0.25);
+        sObj.quaternion.slerp(this.targetQuat, 0.25);
+        sObj.scale.lerp(this.targetScale, 0.25);
+      }
+    }
+
+    // 2. Evaluate Inside vs Outside Portal Perspective (throttled every 2 frames)
+    if (this.frameCount % 2 !== 0) return;
+
+    const camera = this.el.sceneEl && this.el.sceneEl.camera;
     if (!camera || !this.portalRoot || !this.insideView || !this.outsideView) return;
 
     const localPosition = new THREE.Vector3();
@@ -208,12 +289,16 @@ AFRAME.registerComponent('portal-visibility', {
     if (isInside !== this.lastState) {
       this.insideView.setAttribute('visible', isInside);
       this.outsideView.setAttribute('visible', !isInside);
-      if (this.lastState !== null && (this.markerVisible || window.isSimulationMode)) {
+      if (this.lastState !== null && (this.hasLatched || window.isSimulationMode)) {
         PortalAudio.playThresholdCross(isInside);
       }
       this.lastState = isInside;
-      if (this.markerVisible || window.isSimulationMode) {
-        updateTrackingBadge(true, isInside, window.isSimulationMode);
+      if (window.isSimulationMode) {
+        updateTrackingBadge('sim', isInside, true);
+      } else if (this.markerCurrentlyVisible) {
+        updateTrackingBadge('tracking', isInside, false);
+      } else if (this.hasLatched) {
+        updateTrackingBadge('held', isInside, false);
       }
     }
   }
@@ -224,23 +309,26 @@ let currentWorldIndex = 0;
 let currentCubeMode = 'loop'; // 'loop' | 'out' | 'in'
 window.isSimulationMode = false;
 
-function updateTrackingBadge(locked, isInside, isSim) {
+function updateTrackingBadge(state, isInside, isSim) {
   const pill = document.getElementById('tracking-pill');
   const text = document.getElementById('tracking-text');
   if (!pill || !text) return;
 
   pill.classList.remove('locked', 'inside');
-  if (isSim) {
+  if (isSim || state === 'sim') {
     pill.classList.add('locked');
     text.textContent = isInside ? 'Sim 360° Inside' : 'Sim Portal Active';
-  } else if (!locked) {
+  } else if (state === 'searching') {
     text.textContent = 'Scan Hiro or Tap Sim';
   } else if (isInside) {
     pill.classList.add('inside');
     text.textContent = 'Inside Portal 360°';
+  } else if (state === 'held') {
+    pill.classList.add('locked');
+    text.textContent = 'Portal Held (Locked)';
   } else {
     pill.classList.add('locked');
-    text.textContent = 'Hiro Locked';
+    text.textContent = 'Hiro Tracking';
   }
 }
 
@@ -338,12 +426,12 @@ window.setCubeExcursionMode = function (mode) {
 // Toggle Simulated AR Mode (allows experiencing the Portal & In-Out Cube without a physical Hiro marker)
 window.setSimulationMode = function (enable) {
   window.isSimulationMode = enable;
-  const marker = document.querySelector('#hiro-marker');
+  const stabilizedAnchor = document.querySelector('#stabilized-portal-anchor');
   const simAnchor = document.querySelector('#sim-portal-anchor');
   const portalRoot = document.querySelector('#portal-root');
   const simBtn = document.getElementById('btn-sim-mode');
 
-  if (!marker || !simAnchor || !portalRoot) return;
+  if (!stabilizedAnchor || !simAnchor || !portalRoot) return;
 
   if (enable) {
     simAnchor.object3D.add(portalRoot.object3D);
@@ -351,14 +439,16 @@ window.setSimulationMode = function (enable) {
     portalRoot.object3D.rotation.set(0, 0, 0);
     simAnchor.setAttribute('visible', 'true');
     if (simBtn) simBtn.classList.add('active');
-    updateTrackingBadge(true, false, true);
+    updateTrackingBadge('sim', false, true);
   } else {
-    marker.object3D.add(portalRoot.object3D);
+    stabilizedAnchor.object3D.add(portalRoot.object3D);
     portalRoot.object3D.position.set(0, 0, 0);
-    portalRoot.object3D.rotation.set(-Math.PI / 2, 0, 0);
+    portalRoot.object3D.rotation.set(0, 0, 0);
     simAnchor.setAttribute('visible', 'false');
     if (simBtn) simBtn.classList.remove('active');
-    updateTrackingBadge(false, false, false);
+    const visComp = document.querySelector('a-scene').components['portal-visibility'];
+    const isLatched = visComp && visComp.hasLatched;
+    updateTrackingBadge(isLatched ? 'held' : 'searching', false, false);
   }
 };
 
@@ -425,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', handler);
   });
 
-  // Interactive drag-to-orbit in Simulated AR Mode so user can inspect the portal & in-out cube from any angle
+  // Interactive drag-to-orbit in Simulated AR Mode or when Portal is Held
   let isDragging = false;
   let lastX = 0;
   let lastY = 0;
