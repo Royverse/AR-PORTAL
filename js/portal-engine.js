@@ -1,15 +1,7 @@
 /**
- * AR-PORTAL — 8th Wall SLAM Portal Engine (js/portal-engine.js)
- *
- * Implements the official 8th Wall Portal Architecture (https://github.com/8thwall/8thwall &
- * examples/aframe/portal/portal-components.js + portal-aframe):
- *  - Powered by @8thwall/engine-binary (6DoF Visual-Inertial SLAM + Image Target Detection)
- *    and @8thwall/xrextras.
- *  - The Portal Doorway, Hider Enclosure (#hider-walls), Portal Wall (#portal-wall), and
- *    Portal Contents (#portal-contents) sit at FIXED World-Space coordinates (0, 0, 0) so the
- *    window frame NEVER jitters or moves with the phone.
- *  - <a-camera id="camera"> moves in 6DoF World Space driven by 8th Wall's SLAM engine.
- *  - Exact 8th Wall portal bounds-crossing math (isOutside, withinPortalBounds, isInPortalSpace).
+ * AR-PORTAL — Core Portal Occlusion Engine, Direct Three.js Texture Manager,
+ * Low-Barrier Multi-Threshold Hiro Detector, 8th-Wall-Inspired World-Space IMU +
+ * 1-Euro (1€) Pose Stabilizer, Watertight Hider Enclosure & Spatial Audio Synth
  */
 
 // 1. Procedural Web Audio API Portal Synthesizer
@@ -110,17 +102,17 @@ const TextureCache = {
     });
   },
 
-  applyToSky(skyEl, worldId) {
-    if (!skyEl) return;
+  applyToSphere(sphereEl, worldId, side) {
+    if (!sphereEl) return;
     const tex = this.textures[worldId];
     if (!tex) return;
 
     const applyMesh = () => {
-      const mesh = skyEl.getObject3D('mesh');
+      const mesh = sphereEl.getObject3D('mesh');
       if (mesh) {
         mesh.material = new THREE.MeshBasicMaterial({
           map: tex,
-          side: THREE.BackSide,
+          side: side,
           depthWrite: true,
           depthTest: true
         });
@@ -133,223 +125,497 @@ const TextureCache = {
   }
 };
 
-// 3. Guaranteed Hider Material Enforcement (ensures colorWrite: false & renderOrder: -1 on all 8th Wall hider boxes)
-AFRAME.registerComponent('hider-material-fallback', {
+// 3. Depth-Mask Occluder Material Component (8th-Wall-style Hider Material: colorWrite: false, renderOrder: -1)
+AFRAME.registerComponent('depth-mask-material', {
   init: function () {
-    const hiderMat = new THREE.MeshBasicMaterial({
-      colorWrite: false,
-      depthWrite: true,
-      depthTest: true,
-      side: THREE.DoubleSide
-    });
-
-    const applyHider = () => {
+    const applyMaterial = () => {
       const mesh = this.el.getObject3D('mesh');
-      if (!mesh) return;
-      mesh.material = hiderMat;
-      mesh.renderOrder = -1;
-      mesh.traverse((node) => {
-        if (node.isMesh) {
-          node.material = hiderMat;
-          node.renderOrder = -1;
-        }
-      });
+      if (mesh) {
+        mesh.traverse((node) => {
+          if (node.isMesh) {
+            node.material = new THREE.MeshBasicMaterial({
+              colorWrite: false,
+              depthWrite: true,
+              depthTest: true,
+              side: THREE.DoubleSide
+            });
+            node.renderOrder = -1;
+            node.material.needsUpdate = true;
+          }
+        });
+      }
     };
 
-    applyHider();
-    this.el.addEventListener('object3dset', applyHider);
-    this.el.addEventListener('model-loaded', applyHider);
-    setTimeout(applyHider, 80);
-    setTimeout(applyHider, 350);
+    this.el.addEventListener('object3dset', applyMaterial);
+    if (this.el.getObject3D('mesh')) {
+      applyMaterial();
+    }
+    setTimeout(applyMaterial, 100);
+    setTimeout(applyMaterial, 450);
   }
 });
 
-// 4. Official 8th Wall Portal Component Math (from 8thwall/web/examples/aframe/portal/portal-components.js)
-AFRAME.registerComponent('portal', {
-  schema: {
-    width: { default: 4 },
-    height: { default: 6 },
-    depth: { default: 1 }
+// 4. Hardware IMU Gyroscope Sensor Fusion (compensates phone rotation at 60Hz/120Hz in real 3D room space)
+const DeviceIMUFusion = {
+  enabled: false,
+  hasReading: false,
+  alpha: 0,
+  beta: 0,
+  gamma: 0,
+  orient: 0,
+  currentQuat: new THREE.Quaternion(),
+  prevQuat: new THREE.Quaternion(),
+  deltaCamInv: new THREE.Quaternion(),
+  _zee: new THREE.Vector3(0, 0, 1),
+  _euler: new THREE.Euler(),
+  _q0: new THREE.Quaternion(),
+  _q1: new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)),
+
+  init() {
+    if (this.enabled) return;
+    this.enabled = true;
+
+    const updateOrient = () => {
+      if (
+        window.screen &&
+        window.screen.orientation &&
+        window.screen.orientation.angle !== undefined
+      ) {
+        this.orient = THREE.MathUtils.degToRad(window.screen.orientation.angle);
+      } else if (typeof window.orientation === 'number') {
+        this.orient = THREE.MathUtils.degToRad(window.orientation);
+      }
+    };
+    updateOrient();
+    window.addEventListener('orientationchange', updateOrient);
+
+    const onDeviceOrientation = (e) => {
+      if (e.alpha === null || e.beta === null || e.gamma === null) return;
+      this.alpha = THREE.MathUtils.degToRad(e.alpha);
+      this.beta = THREE.MathUtils.degToRad(e.beta);
+      this.gamma = THREE.MathUtils.degToRad(e.gamma);
+
+      this._euler.set(this.beta, this.alpha, -this.gamma, 'YXZ');
+      this.currentQuat.setFromEuler(this._euler);
+      this.currentQuat.multiply(this._q1);
+      this.currentQuat.multiply(this._q0.setFromAxisAngle(this._zee, -this.orient));
+
+      if (!this.hasReading) {
+        this.prevQuat.copy(this.currentQuat);
+        this.hasReading = true;
+      }
+    };
+
+    window.addEventListener('deviceorientation', onDeviceOrientation, true);
+
+    // iOS 13+ permission request on first user interaction
+    const requestIOSPermission = () => {
+      if (
+        typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function'
+      ) {
+        DeviceOrientationEvent.requestPermission()
+          .then((state) => {
+            if (state === 'granted') {
+              window.addEventListener('deviceorientation', onDeviceOrientation, true);
+            }
+          })
+          .catch(() => {});
+      }
+      window.removeEventListener('touchend', requestIOSPermission);
+      window.removeEventListener('click', requestIOSPermission);
+    };
+    window.addEventListener('touchend', requestIOSPermission, { once: true });
+    window.addEventListener('click', requestIOSPermission, { once: true });
   },
 
+  consumeDeltaCameraInverse() {
+    if (!this.hasReading) {
+      this.deltaCamInv.identity();
+      return false;
+    }
+    // deltaCamInv = currentQuat^-1 * prevQuat (rotates camera-space vectors opposite to phone motion
+    // so a stationary 3D object in the room rotates 1:1 as you move around it)
+    this.deltaCamInv.copy(this.currentQuat).invert().multiply(this.prevQuat);
+    this.prevQuat.copy(this.currentQuat);
+    return true;
+  }
+};
+
+// 5. 8th-Wall-Inspired World-Space IMU + 1-Euro (1€) Pose Stabilizer
+// Preserves full 1:1 3D perspective rotation when moving around the marker (so you can inspect
+// the sides and back of the 3D Excursion Cube) while eliminating sub-degree homography jitter.
+AFRAME.registerComponent('portal-visibility', {
   init: function () {
-    this.camera = document.getElementById('camera');
-    this.contents = document.getElementById('portal-contents');
-    this.walls = document.getElementById('hider-walls');
-    this.portalWall = document.getElementById('portal-wall');
-    this.isInPortalSpace = false;
-    this.wasOutside = true;
-    this.lastReportedInside = null;
+    DeviceIMUFusion.init();
+
+    this.portalRoot = document.querySelector('#portal-root');
+    this.insideView = document.querySelector('#portal-inside');
+    this.outsideView = document.querySelector('#portal-outside');
+    this.markerEl = document.querySelector('#hiro-marker');
+    this.stabilizedAnchor = document.querySelector('#stabilized-portal-anchor');
+
+    this.lastState = null;
+    this.hysteresisThreshold = 0.04;
+    this.frameCount = 0;
+    this.lostFrameCount = 0;
+
+    // Sticky Pose-Hold Latch state
+    this.markerCurrentlyVisible = false;
+    this.hasLatched = false;
+    this.justAcquired = false;
+
+    // Decoupled Spherical Ray + Depth + Full 3D Orientation state:
+    // - (rayX, rayY) pins the portal center to the 2D video point with directional coherence filtering
+    // - stableDepth locks radial distance against corner-perimeter breathing noise
+    // - stableQuat preserves FULL 1:1 3D perspective rotation (no Euler attenuation!) with a 1-Euro
+    //   deadband + planar homography flip rejector so the box stays still in room space as you walk around it
+    this.rayX = 0;
+    this.rayY = 0;
+    this.stableDepth = 1.6;
+    this.stablePos = new THREE.Vector3(0, 0, -1.6);
+    this.stableQuat = new THREE.Quaternion();
+    this.stableScale = new THREE.Vector3(1, 1, 1);
+
+    this.rawPos = new THREE.Vector3();
+    this.prevOpticalRawPos = new THREE.Vector3(999, 999, 999);
+    this.rawQuat = new THREE.Quaternion();
+    this.rawScale = new THREE.Vector3(1, 1, 1);
+    this.rotOffsetQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+
+    // Directional Coherence state (detects & cancels back-and-forth sign-reversal jitter)
+    this.prevDeltaRayX = 0;
+    this.prevDeltaRayY = 0;
+    this.coherenceStreak = 0;
+
+    // Rotational Coherence state (distinguishes real orbiting around the box from 1-frame homography noise)
+    this.prevQuatStep = new THREE.Quaternion();
+    this.rotCoherenceStreak = 0;
+
+    this.depthOutlierCount = 0;
+    this.rotOutlierCount = 0;
+
+    // Multi-threshold sweep array (used ONLY before lock-on or after extended loss)
+    this.thresholds = [70, 95, 115, 135, 160];
+    this.threshIdx = 0;
+
+    if (this.markerEl) {
+      this.markerEl.addEventListener('markerFound', () => {
+        this.markerCurrentlyVisible = true;
+        this.lostFrameCount = 0;
+        if (!this.hasLatched) {
+          this.hasLatched = true;
+          this.justAcquired = true;
+          PortalAudio.playWorldSwitch(130.8);
+        }
+        if (window.isSimulationMode) {
+          window.setSimulationMode(false);
+        }
+        if (this.stabilizedAnchor) {
+          this.stabilizedAnchor.setAttribute('visible', 'true');
+        }
+        updateTrackingBadge('tracking', this.lastState === true, false);
+      });
+
+      this.markerEl.addEventListener('markerLost', () => {
+        this.markerCurrentlyVisible = false;
+        if (this.hasLatched && !window.isSimulationMode) {
+          updateTrackingBadge('held', this.lastState === true, false);
+        } else if (!window.isSimulationMode) {
+          updateTrackingBadge('searching', false, false);
+        }
+      });
+    }
+  },
+
+  lowerARToolKitBarrier: function () {
+    try {
+      const arSystem = this.el.sceneEl && this.el.sceneEl.systems && this.el.sceneEl.systems.arjs;
+      const ctx = arSystem && arSystem._arToolkitContext;
+      if (ctx && ctx.arController) {
+        if (this.markerEl && this.markerEl.components && this.markerEl.components.arjsmarker) {
+          const markerCtrl = this.markerEl.components.arjsmarker._arMarkerControls;
+          if (markerCtrl && markerCtrl.parameters) {
+            markerCtrl.parameters.minConfidence = this.hasLatched ? 0.30 : 0.18;
+          }
+        }
+        // Freeze binarization threshold while tracking is active so the Hiro border
+        // thickness never fluctuates (which would cause Z-depth jitter). Only sweep if searching!
+        if (!this.markerCurrentlyVisible) {
+          this.lostFrameCount++;
+          if ((!this.hasLatched || this.lostFrameCount > 45) && this.frameCount % 4 === 0) {
+            this.threshIdx = (this.threshIdx + 1) % this.thresholds.length;
+            ctx.arController.setThreshold(this.thresholds[this.threshIdx]);
+          }
+        }
+      }
+    } catch (e) {}
   },
 
   tick: function () {
-    if (!this.camera) this.camera = document.getElementById('camera');
-    if (!this.contents) this.contents = document.getElementById('portal-contents');
-    if (!this.walls) this.walls = document.getElementById('hider-walls');
-    if (!this.portalWall) this.portalWall = document.getElementById('portal-wall');
-    if (!this.camera || !this.contents || !this.walls || !this.portalWall) return;
+    this.frameCount++;
+    this.lowerARToolKitBarrier();
 
-    const position = this.camera.object3D.position;
+    if (!this.portalRoot) this.portalRoot = document.querySelector('#portal-root');
+    if (!this.insideView) this.insideView = document.querySelector('#portal-inside');
+    if (!this.outsideView) this.outsideView = document.querySelector('#portal-outside');
+    if (!this.stabilizedAnchor)
+      this.stabilizedAnchor = document.querySelector('#stabilized-portal-anchor');
 
-    // Official 8th Wall Portal Math:
-    const isOutside = position.z > this.data.depth / 2;
+    const hasIMU = DeviceIMUFusion.consumeDeltaCameraInverse();
+
+    // 1. Apply 60Hz/120Hz Hardware IMU Gyroscope World-Space Counter-Rotation when Latched
+    // This immediately rotates the portal & cube in Camera Space opposite to phone rotation so
+    // the 3D box stays fixed in physical room space and shows its sides/back as you move around it!
+    if (this.hasLatched && !this.justAcquired && !window.isSimulationMode && hasIMU) {
+      this.stablePos.applyQuaternion(DeviceIMUFusion.deltaCamInv);
+      this.stableQuat.premultiply(DeviceIMUFusion.deltaCamInv);
+      const absZ = Math.max(0.15, Math.abs(this.stablePos.z));
+      this.rayX = this.stablePos.x / absZ;
+      this.rayY = this.stablePos.y / absZ;
+    }
+
+    // 2. Fuse Optical Centroid + Full 1:1 3D Rotation 1-Euro Filter + Planar Homography Flip Rejector
+    if (
+      this.markerCurrentlyVisible &&
+      this.markerEl &&
+      this.stabilizedAnchor &&
+      !window.isSimulationMode
+    ) {
+      const mObj = this.markerEl.object3D;
+      mObj.getWorldPosition(this.rawPos);
+      mObj.getWorldQuaternion(this.rawQuat);
+      mObj.getWorldScale(this.rawScale);
+
+      // Only run optical fusion when ARToolKit delivers a new video frame detection
+      const isNewOpticalFrame = this.rawPos.distanceToSquared(this.prevOpticalRawPos) > 1e-9;
+
+      if (this.justAcquired || isNewOpticalFrame) {
+        this.prevOpticalRawPos.copy(this.rawPos);
+
+        // Apply -90 deg X offset so the portal stands upright on the marker plane,
+        // preserving FULL 1:1 3D pitch, yaw, and roll so moving around the marker reveals
+        // the sides and back of the 3D Excursion Cube!
+        this.rawQuat.multiply(this.rotOffsetQuat);
+
+        // Enforce shortest-path quaternion hemisphere continuity
+        if (!this.justAcquired && this.stableQuat.dot(this.rawQuat) < 0) {
+          this.rawQuat.set(
+            -this.rawQuat.x,
+            -this.rawQuat.y,
+            -this.rawQuat.z,
+            -this.rawQuat.w
+          );
+        }
+
+        const rawAbsZ = Math.max(0.15, Math.abs(this.rawPos.z));
+        const rawRayX = this.rawPos.x / rawAbsZ;
+        const rawRayY = this.rawPos.y / rawAbsZ;
+        const rawDepth = Math.max(0.25, this.rawPos.length());
+
+        const sObj = this.stabilizedAnchor.object3D;
+        sObj.visible = true;
+
+        if (this.justAcquired) {
+          this.rayX = rawRayX;
+          this.rayY = rawRayY;
+          this.stableDepth = rawDepth;
+          this.stablePos.copy(this.rawPos);
+          this.stableQuat.copy(this.rawQuat);
+          this.stableScale.copy(this.rawScale);
+
+          sObj.position.copy(this.stablePos);
+          sObj.quaternion.copy(this.stableQuat);
+          sObj.scale.copy(this.stableScale);
+          this.justAcquired = false;
+        } else {
+          // A. DIRECTIONAL COHERENCE SCREEN-RAY FILTER (Kills back-and-forth jitter while pinning to the marker)
+          const dRayX = rawRayX - this.rayX;
+          const dRayY = rawRayY - this.rayY;
+          const rayDelta = Math.hypot(dRayX, dRayY);
+
+          const prevMag = Math.hypot(this.prevDeltaRayX, this.prevDeltaRayY);
+          const dot = dRayX * this.prevDeltaRayX + dRayY * this.prevDeltaRayY;
+          const coherence = prevMag > 0.0005 && rayDelta > 0.0005 ? dot / (prevMag * rayDelta) : 0;
+
+          if (coherence > 0.25 && rayDelta > 0.0025) {
+            this.coherenceStreak = Math.min(8, this.coherenceStreak + 1);
+          } else if (coherence < 0) {
+            this.coherenceStreak = 0;
+          } else {
+            this.coherenceStreak = Math.max(0, this.coherenceStreak - 1);
+          }
+
+          this.prevDeltaRayX = dRayX;
+          this.prevDeltaRayY = dRayY;
+
+          let alphaRay;
+          if (rayDelta < 0.003) {
+            // Sub-pixel / micro-tremor deadband: hold rock-solid!
+            alphaRay = 0.03;
+          } else if (coherence < 0) {
+            // Sign-reversal oscillation (jitter spike): block 95% of the reversal!
+            alphaRay = 0.045;
+          } else if (hasIMU) {
+            alphaRay = THREE.MathUtils.clamp(0.14 + this.coherenceStreak * 0.06, 0.14, 0.52);
+          } else {
+            alphaRay = THREE.MathUtils.clamp(
+              0.12 + this.coherenceStreak * 0.09 + (rayDelta - 0.003) * 8.0,
+              0.12,
+              0.68
+            );
+          }
+
+          this.rayX += dRayX * alphaRay;
+          this.rayY += dRayY * alphaRay;
+
+          // B. DEADBAND RADIAL DEPTH LOCK (prevents Z-axis size breathing / forward-back jitter)
+          const relDepthDiff =
+            Math.abs(rawDepth - this.stableDepth) / Math.max(0.25, this.stableDepth);
+          if (relDepthDiff > 0.30 && this.depthOutlierCount < 4) {
+            this.depthOutlierCount++;
+          } else {
+            this.depthOutlierCount = 0;
+            const alphaDepth =
+              relDepthDiff < 0.035
+                ? 0.015
+                : THREE.MathUtils.clamp(0.015 + (relDepthDiff - 0.035) * 1.5, 0.015, 0.25);
+            this.stableDepth += (rawDepth - this.stableDepth) * alphaDepth;
+          }
+
+          // Reconstruct 3D camera-space position along the stabilized screen ray at the locked depth
+          const invNorm = 1.0 / Math.sqrt(this.rayX * this.rayX + this.rayY * this.rayY + 1.0);
+          this.stablePos.set(
+            this.rayX * invNorm * this.stableDepth,
+            this.rayY * invNorm * this.stableDepth,
+            -1.0 * invNorm * this.stableDepth
+          );
+
+          // C. FULL 3D ROTATION 1-EURO (1€) FILTER & PLANAR HOMOGRAPHY FLIP REJECTOR
+          // Keeps the 3D box carved in stone when still (angleDiff < 2.2°), rejects single-frame
+          // PnP normal flips (> 25°), and tracks full 1:1 3D perspective angles when orbiting
+          // around the marker so you can view the sides and back of the 3D Excursion Cube!
+          const angleDiff = this.stableQuat.angleTo(this.rawQuat);
+
+          if (angleDiff > 0.44 && rayDelta < 0.04 && this.rotOutlierCount < 4) {
+            // Single-frame planar homography reflection glitch (sudden >25° flip without camera translation)
+            this.rotOutlierCount++;
+            this.stableQuat.slerp(this.rawQuat, 0.008);
+          } else {
+            this.rotOutlierCount = 0;
+            let alphaRot;
+            if (angleDiff < 0.038) {
+              // Sub-2.2° rotational deadband: eliminates corner homography shimmer
+              alphaRot = 0.022;
+            } else if (coherence < 0 && angleDiff < 0.14) {
+              // Rotational oscillation reversal: damp strongly
+              alphaRot = 0.035;
+            } else {
+              // True 3D viewing-angle change around the marker: track full 1:1 3D perspective smoothly!
+              alphaRot = THREE.MathUtils.clamp(
+                0.08 + (angleDiff - 0.038) * 1.45 + this.coherenceStreak * 0.03,
+                0.08,
+                0.46
+              );
+            }
+            this.stableQuat.slerp(this.rawQuat, alphaRot);
+          }
+
+          // Lock scale tightly
+          this.stableScale.lerp(this.rawScale, 0.02);
+        }
+      }
+
+      const sObj = this.stabilizedAnchor.object3D;
+      sObj.visible = true;
+      sObj.position.copy(this.stablePos);
+      sObj.quaternion.copy(this.stableQuat);
+      sObj.scale.copy(this.stableScale);
+    } else if (this.hasLatched && this.stabilizedAnchor && !window.isSimulationMode) {
+      // When marker is momentarily out of view, apply the IMU-compensated world pose
+      const sObj = this.stabilizedAnchor.object3D;
+      sObj.position.copy(this.stablePos);
+      sObj.quaternion.copy(this.stableQuat);
+    }
+
+    // 3. Evaluate 8th-Wall-Style 3-State Portal Perspective (Outside Front / Outside Behind / Inside Portal Space)
+    if (this.frameCount % 2 !== 0) return;
+
+    const camera = this.el.sceneEl && this.el.sceneEl.camera;
+    if (!camera || !this.portalRoot || !this.insideView || !this.outsideView) return;
+
+    const localPosition = new THREE.Vector3();
+    camera.getWorldPosition(localPosition);
+    this.portalRoot.object3D.worldToLocal(localPosition);
+
+    const isOutside = localPosition.z >= 0;
     const withinPortalBounds =
-      position.y < this.data.height && Math.abs(position.x) < this.data.width / 2;
+      Math.abs(localPosition.x) < 0.6 &&
+      Math.abs(localPosition.y) < 0.6 &&
+      Math.abs(localPosition.z) < 0.45;
 
-    if (this.wasOutside !== isOutside && withinPortalBounds) {
+    if (this.wasOutside !== undefined && this.wasOutside !== isOutside && withinPortalBounds) {
       this.isInPortalSpace = !isOutside;
     }
-
-    this.contents.object3D.visible = this.isInPortalSpace || isOutside;
-    this.walls.object3D.visible = !this.isInPortalSpace && isOutside;
-    this.portalWall.object3D.visible = this.isInPortalSpace && !isOutside;
-
     this.wasOutside = isOutside;
 
-    if (this.isInPortalSpace !== this.lastReportedInside) {
-      if (this.lastReportedInside !== null) {
-        PortalAudio.playThresholdCross(this.isInPortalSpace);
+    const isInside = Boolean(this.isInPortalSpace);
+    // Show #portal-outside when in front of the doorway (isOutside), and hide it if the user
+    // orbits >90° behind the doorway in the real world so the z=0 depth mask never blocks
+    // the back of the breached-out 3D cube at z = +0.62!
+    const showOutsidePortal = !isInside && localPosition.z >= -0.05;
+
+    this.insideView.setAttribute('visible', isInside);
+    this.outsideView.setAttribute('visible', showOutsidePortal);
+
+    if (isInside !== this.lastState) {
+      if (this.lastState !== null && (this.hasLatched || window.isSimulationMode)) {
+        PortalAudio.playThresholdCross(isInside);
       }
-      this.lastReportedInside = this.isInPortalSpace;
-      updateTrackingBadge('slam', this.isInPortalSpace);
+      this.lastState = isInside;
+      if (window.isSimulationMode) {
+        updateTrackingBadge('sim', isInside, true);
+      } else if (this.markerCurrentlyVisible) {
+        updateTrackingBadge('tracking', isInside, false);
+      } else if (this.hasLatched) {
+        updateTrackingBadge('held', isInside, false);
+      }
     }
   }
 });
 
-// 5. 8th Wall Tap-to-Place & Hiro Image Target Recenter Component (from 8thwall portal-aframe)
-AFRAME.registerComponent('tap-to-place-portal', {
-  init: function () {
-    const sceneEl = this.el.sceneEl || this.el;
-    const doorway = document.getElementById('portal-doorway');
-    const portalRoot = document.getElementById('portal-root');
-
-    this.hasPlaced = false;
-
-    const animatePortalOpen = () => {
-      if (doorway) {
-        doorway.removeAttribute('animation__open');
-        doorway.setAttribute('animation__open', {
-          property: 'scale',
-          dur: 1200,
-          from: '0.001 0.001 0.001',
-          to: '1 1 1',
-          easing: 'easeOutElastic'
-        });
-      }
-      if (portalRoot) {
-        portalRoot.removeAttribute('animation__open');
-        portalRoot.setAttribute('animation__open', {
-          property: 'scale',
-          dur: 1200,
-          from: '0.001 0.001 0.001',
-          to: '4 4 4',
-          easing: 'easeOutElastic'
-        });
-      }
-      PortalAudio.playWorldSwitch(130.8);
-    };
-
-    window.recenterPortal = (animate = false) => {
-      sceneEl.emit('recenter');
-      if (animate || !this.hasPlaced) {
-        this.hasPlaced = true;
-        animatePortalOpen();
-      }
-      const portalComp = sceneEl.components && sceneEl.components.portal;
-      const isInside = portalComp ? portalComp.isInPortalSpace : false;
-      updateTrackingBadge('slam', isInside);
-    };
-
-    // When 8th Wall SLAM initializes, anchor the portal in 6DoF World Space immediately
-    sceneEl.addEventListener('realityready', () => {
-      const loader = document.getElementById('loading-overlay');
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(() => {
-          loader.style.display = 'none';
-        }, 300);
-      }
-      window.recenterPortal(true);
-    });
-
-    // If the user scans the Hiro marker, snap/recenter the 8th Wall SLAM anchor onto that point
-    sceneEl.addEventListener('xrimagefound', () => {
-      window.recenterPortal(false);
-    });
-
-    // Like 8th Wall's xrextras-tap-recenter / tapToPlacePortalComponent:
-    // tapping the 3D canvas re-anchors the portal directly at the point you're facing
-    window.addEventListener('click', (e) => {
-      if (
-        e.target.closest('#hud-top') ||
-        e.target.closest('#hud-bottom') ||
-        e.target.closest('#marker-modal')
-      ) {
-        return;
-      }
-      if (window.recenterPortal) {
-        window.recenterPortal(false);
-      }
-    });
-  }
-});
-
-// Configure 8th Wall Image Target (Hiro Target) + SLAM World Tracking on xrloaded
-const configure8thWallEngine = () => {
-  if (!window.XR8 || !window.XR8.XrController) return;
-  try {
-    window.XR8.XrController.configure({
-      imageTargetData: [
-        {
-          type: 'PLANAR',
-          properties: {
-            top: 0,
-            left: 0,
-            width: 480,
-            height: 640,
-            isRotated: false,
-            originalWidth: 480,
-            originalHeight: 640
-          },
-          imagePath: './assets/targets/hiro-target_luminance.jpg',
-          metadata: null,
-          name: 'hiro-target'
-        }
-      ]
-    });
-  } catch (e) {}
-};
-if (window.XR8) {
-  configure8thWallEngine();
-} else {
-  window.addEventListener('xrloaded', configure8thWallEngine);
-}
-
-// 6. World Switching, Cube Excursion Controls & Step-Inside Toggle
+// 6. World Switching, Cube Excursion Controls & Interactive 3D Orbit / Sim Stage
 let currentWorldIndex = 0;
-let currentCubeMode = 'loop';
-window.isInsideSimWalk = false;
+let currentCubeMode = 'loop'; // 'loop' | 'out' | 'in'
+window.isSimulationMode = false;
 
-function updateTrackingBadge(state, isInside) {
+function updateTrackingBadge(state, isInside, isSim) {
   const pill = document.getElementById('tracking-pill');
   const text = document.getElementById('tracking-text');
   if (!pill || !text) return;
 
   pill.classList.remove('locked', 'inside');
-  if (isInside) {
+  if (isSim || state === 'sim') {
+    pill.classList.add('locked');
+    text.textContent = isInside ? 'Sim 360° Inside' : 'Sim Portal Active';
+  } else if (state === 'searching') {
+    text.textContent = 'Scan Hiro or Tap Sim';
+  } else if (isInside) {
     pill.classList.add('inside');
     text.textContent = 'Inside Portal 360°';
+  } else if (state === 'held') {
+    pill.classList.add('locked');
+    text.textContent = 'Portal Held (Locked)';
   } else {
     pill.classList.add('locked');
-    text.textContent = '8th Wall 6DoF Locked';
+    text.textContent = 'Hiro Tracking';
   }
 }
 
 window.updateCubeTelemetry = function (inRealWorld, zVal) {
   const badge = document.getElementById('cube-telemetry');
   if (!badge) return;
-  const worldZ = zVal * 4.0;
-  const signStr = worldZ >= 0 ? `+${worldZ.toFixed(1)}m` : `${worldZ.toFixed(1)}m`;
+  const signStr = zVal >= 0 ? `+${zVal.toFixed(2)}m` : `${zVal.toFixed(2)}m`;
   if (inRealWorld) {
     badge.textContent = `CUBE: REAL WORLD (${signStr})`;
     badge.classList.add('real-world');
@@ -366,23 +632,31 @@ window.selectPortalWorld = function (index, playSound = true) {
   currentWorldIndex = ((index % worlds.length) + worlds.length) % worlds.length;
   const world = worlds[currentWorldIndex];
 
-  const portalSky = document.querySelector('#portal-sky');
-  if (portalSky) {
-    TextureCache.applyToSky(portalSky, world.id);
-    portalSky.setAttribute('rotation', world.sphereRotationInside || '0 -90 0');
+  const insideSphere = document.querySelector('#inside-sphere');
+  const outsideSphere = document.querySelector('#outside-sphere');
+
+  // Directly apply Three.js 4K textures to guarantee instant switching on all mobile browsers
+  TextureCache.applyToSphere(insideSphere, world.id, THREE.DoubleSide);
+  TextureCache.applyToSphere(outsideSphere, world.id, THREE.BackSide);
+
+  if (insideSphere) {
+    insideSphere.setAttribute('rotation', world.sphereRotationInside || '0 -90 0');
+  }
+  if (outsideSphere) {
+    outsideSphere.setAttribute('rotation', world.sphereRotationOutside || '0 0 0');
   }
 
   // Update Portal Frame metallic/emissive accents
   document.querySelectorAll('.portal-beam').forEach((beam) => {
     beam.setAttribute(
       'material',
-      `color: ${world.frameColor}; emissive: ${world.frameEmissive}; emissiveIntensity: 0.75; metalness: 0.9; roughness: 0.15`
+      `color: ${world.frameColor}; emissive: ${world.frameEmissive}; emissiveIntensity: 0.6; metalness: 0.9; roughness: 0.15`
     );
   });
   document.querySelectorAll('.portal-corner').forEach((corner) => {
     corner.setAttribute(
       'material',
-      `color: ${world.frameColor}; emissive: ${world.frameColor}; emissiveIntensity: 0.95; shader: flat`
+      `color: ${world.frameColor}; emissive: ${world.frameColor}; emissiveIntensity: 0.95; shader: flat; transparent: true; opacity: 0.65`
     );
   });
 
@@ -392,10 +666,12 @@ window.selectPortalWorld = function (index, playSound = true) {
     portalRoot.components['portal-excursion-cube'].setWorldAccent(world.frameColor);
   }
 
-  // Rebuild 3D Spatial Modeling inside the unified #portal-volume
+  // Rebuild 3D Spatial Modeling inside both outside & inside portal volumes
   const spatialMarkup = window.buildWorldSpatialVolume(world.id);
-  const portalVolume = document.querySelector('#portal-volume');
-  if (portalVolume) portalVolume.innerHTML = spatialMarkup;
+  const outsideVolume = document.querySelector('#outside-volume');
+  const insideVolume = document.querySelector('#inside-volume');
+  if (outsideVolume) outsideVolume.innerHTML = spatialMarkup;
+  if (insideVolume) insideVolume.innerHTML = spatialMarkup;
 
   // Update HUD CSS accent & active tab state
   document.documentElement.style.setProperty('--portal-accent', world.frameColor);
@@ -427,66 +703,79 @@ window.setCubeExcursionMode = function (mode) {
   PortalAudio.playThresholdCross(mode === 'out');
 };
 
-// Allows stepping directly inside/outside the portal on desktop or with one tap
-window.toggleStepInsidePortal = function () {
-  const cameraEl = document.getElementById('camera');
-  const sceneEl = document.querySelector('a-scene');
-  const portalComp = sceneEl && sceneEl.components && sceneEl.components.portal;
-  const stepBtn = document.getElementById('btn-step-inside');
-  if (!cameraEl || !portalComp) return;
+// Toggle Simulated AR Mode (allows experiencing the Portal & In-Out Cube without a physical Hiro marker)
+window.setSimulationMode = function (enable) {
+  window.isSimulationMode = enable;
+  const stabilizedAnchor = document.querySelector('#stabilized-portal-anchor');
+  const simAnchor = document.querySelector('#sim-portal-anchor');
+  const portalRoot = document.querySelector('#portal-root');
+  const simBtn = document.getElementById('btn-sim-mode');
 
-  window.isInsideSimWalk = !portalComp.isInPortalSpace;
-  if (window.isInsideSimWalk) {
-    // Move camera through the 4x6 doorway (x=0, y=4) from z > 0.5 to z = -2.0
-    cameraEl.object3D.position.set(0, 4, 1.0);
-    portalComp.tick();
-    cameraEl.object3D.position.set(0, 4, -2.0);
-    portalComp.tick();
-    if (stepBtn) stepBtn.classList.add('active');
+  if (!stabilizedAnchor || !simAnchor || !portalRoot) return;
+
+  if (enable) {
+    simAnchor.object3D.add(portalRoot.object3D);
+    portalRoot.object3D.position.set(0, 0, 0);
+    portalRoot.object3D.rotation.set(0, 0, 0);
+    simAnchor.setAttribute('visible', 'true');
+    if (simBtn) simBtn.classList.add('active');
+    updateTrackingBadge('sim', false, true);
   } else {
-    // Step back out through the doorway from z < 0.5 to z = 9.0
-    cameraEl.object3D.position.set(0, 4, -0.5);
-    portalComp.tick();
-    cameraEl.object3D.position.set(0, 4, 9.0);
-    portalComp.tick();
-    if (stepBtn) stepBtn.classList.remove('active');
+    stabilizedAnchor.object3D.add(portalRoot.object3D);
+    portalRoot.object3D.position.set(0, 0, 0);
+    portalRoot.object3D.rotation.set(0, 0, 0);
+    simAnchor.setAttribute('visible', 'false');
+    if (simBtn) simBtn.classList.remove('active');
+    const visComp = document.querySelector('a-scene').components['portal-visibility'];
+    const isLatched = visComp && visComp.hasLatched;
+    updateTrackingBadge(isLatched ? 'held' : 'searching', false, false);
   }
+};
+
+window.toggleSimulationMode = function () {
+  window.setSimulationMode(!window.isSimulationMode);
 };
 
 window.toggleMarkerModal = function (forceState) {
   const modal = document.getElementById('marker-modal');
   if (!modal) return;
-  const shouldOpen = typeof forceState === 'boolean' ? forceState : !modal.classList.contains('open');
+  const shouldOpen =
+    typeof forceState === 'boolean' ? forceState : !modal.classList.contains('open');
   modal.classList.toggle('open', shouldOpen);
 };
 
-// Initialize Scene, Retina Sharpness & Interactive Touch Controls
+// Initialize Scene, Retina Sharpness & Interactive Touch/Drag 360° Orbit Controls
 document.addEventListener('DOMContentLoaded', () => {
   const sceneEl = document.querySelector('a-scene');
 
-  const hideLoaderFallback = () => {
-    const loader = document.getElementById('loading-overlay');
-    if (loader && loader.style.display !== 'none') {
-      loader.style.opacity = '0';
-      setTimeout(() => {
-        loader.style.display = 'none';
-      }, 350);
+  const enforceRetinaResolution = () => {
+    if (sceneEl && sceneEl.renderer) {
+      const dpr = Math.min(window.devicePixelRatio || 2, 2.5);
+      sceneEl.renderer.setPixelRatio(dpr);
     }
   };
 
   if (sceneEl) {
     sceneEl.addEventListener('loaded', () => {
-      if (sceneEl.renderer) {
-        const dpr = Math.min(window.devicePixelRatio || 2, 2.5);
-        sceneEl.renderer.setPixelRatio(dpr);
-      }
+      enforceRetinaResolution();
       TextureCache.preloadAll(sceneEl.renderer);
+
+      const loader = document.getElementById('loading-overlay');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => {
+          loader.style.display = 'none';
+        }, 350);
+      }
+
+      sceneEl.setAttribute('portal-visibility', '');
       window.selectPortalWorld(0, false);
-      setTimeout(hideLoaderFallback, 1800);
     });
   }
 
-  // Explicit touch/pointer bindings for mobile reliability
+  window.addEventListener('resize', enforceRetinaResolution);
+
+  // Explicit touch/pointer bindings for mobile reliability (bypasses AR.js canvas interception)
   document.querySelectorAll('.world-tab').forEach((btn, idx) => {
     const handler = (e) => {
       e.stopPropagation();
@@ -505,5 +794,68 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     btn.addEventListener('touchend', handler, { passive: false });
     btn.addEventListener('click', handler);
+  });
+
+  // Interactive drag-to-orbit around the 3D Portal & Cube (works in both AR Mode and 3D Sim Mode
+  // so you can either physically move around the Hiro marker OR drag to orbit 360° around the cube!)
+  let isDragging = false;
+  let lastX = 0;
+  let lastY = 0;
+  let rotY = 0;
+  let rotX = 0;
+  let lastTapTime = 0;
+
+  window.addEventListener('pointerdown', (e) => {
+    if (
+      e.target.closest('#hud-top') ||
+      e.target.closest('#hud-bottom') ||
+      e.target.closest('#marker-modal')
+    ) {
+      return;
+    }
+    const now = performance.now();
+    if (now - lastTapTime < 280) {
+      // Double-tap resets manual orbit offset back to 0°
+      rotX = 0;
+      rotY = 0;
+      const portalRoot = document.querySelector('#portal-root');
+      if (portalRoot) {
+        portalRoot.object3D.rotation.set(0, 0, 0);
+      }
+      const simAnchor = document.querySelector('#sim-portal-anchor');
+      if (simAnchor) {
+        simAnchor.setAttribute('rotation', '0 0 0');
+      }
+    }
+    lastTapTime = now;
+
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    // Allow full ±180° Y-axis orbit so the user can inspect all 4 sides and the back of the cube
+    rotY = THREE.MathUtils.clamp(rotY + dx * 0.45, -180, 180);
+    rotX = THREE.MathUtils.clamp(rotX + dy * 0.35, -65, 65);
+
+    const portalRoot = document.querySelector('#portal-root');
+    if (portalRoot) {
+      portalRoot.object3D.rotation.set(
+        THREE.MathUtils.degToRad(rotX),
+        THREE.MathUtils.degToRad(rotY),
+        0
+      );
+    }
+  });
+
+  window.addEventListener('pointerup', () => {
+    isDragging = false;
   });
 });
